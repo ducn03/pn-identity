@@ -8,6 +8,7 @@ class PnIdentityApplicationTests {
 
 	@Test
 	void contextLoads() {
+		System.out.println("BCRYPT_ADMIN123=" + com.premiernuts.identity.core.utils.PasswordHelper.hash("admin123"));
 	}
 
 }

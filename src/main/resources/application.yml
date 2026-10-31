@@ -1,0 +1,44 @@
+server:
+  port: ${SERVER_PORT:8081}
+
+spring:
+  application:
+    name: pn-identity
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/premiernutserp}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:root}
+    hikari:
+      connection-timeout: 30000
+      maximum-pool-size: 15
+      minimum-idle: 5
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:none}
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+# Premier Nuts Identity JWT Configuration (No Redis/Queue)
+pn:
+  jwt:
+    secret-key: ${JWT_SECRET_KEY:PremierNutsSecretKeyForJWTAuth2026SecureKeyWithAtLeast256BitsLong!}
+    access-token-expiration: 86400000   # 1 day (ms)
+    refresh-token-expiration: 604800000 # 7 days (ms)
+
+# Spring Boot Actuator Monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
