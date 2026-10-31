@@ -6,7 +6,9 @@ import com.premiernuts.identity.core.exception.PnException;
 import com.premiernuts.identity.core.security.JwtHelper;
 import com.premiernuts.identity.core.security.UserContext;
 import com.premiernuts.identity.core.security.UserPrincipal;
+import com.premiernuts.identity.core.utils.DateTimeHelper;
 import com.premiernuts.identity.core.utils.JsonHelper;
+import com.premiernuts.identity.core.utils.StringHelper;
 import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -35,7 +37,7 @@ public class LogActivityAspect {
 
     @Around("@annotation(logActivity)")
     public Object handle(ProceedingJoinPoint point, LogActivity logActivity) throws Throwable {
-        long startTime = System.currentTimeMillis();
+        long startTime = DateTimeHelper.currentTimeMillis();
 
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         HttpServletRequest request = null;
@@ -56,7 +58,7 @@ public class LogActivityAspect {
             }
 
             Object result = point.proceed();
-            long duration = System.currentTimeMillis() - startTime;
+            long duration = DateTimeHelper.currentTimeMillis() - startTime;
 
             log.info("[LogActivity] [{} {}] duration={}ms | response={}",
                     method, path, duration, JsonHelper.toJson(result));
@@ -79,7 +81,7 @@ public class LogActivityAspect {
             throw new PnException(ErrorCodes.UNAUTHORIZED.UNAUTHORIZED);
         }
 
-        String token = authHeader.substring(SecurityConstants.BEARER_PREFIX.length()).trim();
+        String token = StringHelper.trim(authHeader.substring(SecurityConstants.BEARER_PREFIX.length()));
         try {
             Long userId = jwtHelper.extractUserId(token);
             String username = jwtHelper.extractUsername(token);
@@ -94,7 +96,12 @@ public class LogActivityAspect {
             if (requiredRoles != null && requiredRoles.length > 0) {
                 boolean hasRole = false;
                 if (roles != null) {
-                    hasRole = Arrays.stream(requiredRoles).anyMatch(roles::contains);
+                    for (String requiredRole : requiredRoles) {
+                        if (requiredRole != null && roles.contains(requiredRole)) {
+                            hasRole = true;
+                            break;
+                        }
+                    }
                 }
                 if (!hasRole) {
                     throw new PnException(ErrorCodes.FORBIDDEN.ACCESS_DENIED);

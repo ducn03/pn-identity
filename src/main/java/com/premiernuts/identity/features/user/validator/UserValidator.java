@@ -4,6 +4,7 @@ import com.premiernuts.identity.core.enums.EStatus;
 import com.premiernuts.identity.core.exception.ErrorCodes;
 import com.premiernuts.identity.core.exception.PnException;
 import com.premiernuts.identity.core.utils.MessageHelper;
+import com.premiernuts.identity.core.utils.StringHelper;
 import com.premiernuts.identity.features.user.dto.ChangePasswordDTO;
 import com.premiernuts.identity.features.user.dto.CreateUserDTO;
 import com.premiernuts.identity.features.user.dto.UpdateStatusDTO;
@@ -26,16 +27,16 @@ public class UserValidator {
 
         List<String> errors = new ArrayList<>();
 
-        if (request.getUsername() == null || request.getUsername().trim().isEmpty()) {
+        if (StringHelper.isBlank(request.getUsername())) {
             errors.add(MessageHelper.getMessage(ErrorCodes.VALIDATION.USERNAME_REQUIRED));
         } else {
-            String trimmedUsername = request.getUsername().trim();
+            String trimmedUsername = StringHelper.trim(request.getUsername());
             if (trimmedUsername.length() < 3 || trimmedUsername.length() > 50) {
                 errors.add(MessageHelper.getMessage(ErrorCodes.VALIDATION.USERNAME_LENGTH));
             }
         }
 
-        if (request.getPassword() == null || request.getPassword().trim().isEmpty()) {
+        if (StringHelper.isBlank(request.getPassword())) {
             errors.add(MessageHelper.getMessage(ErrorCodes.VALIDATION.PASSWORD_REQUIRED));
         } else {
             if (request.getPassword().length() < 6) {
@@ -43,12 +44,12 @@ public class UserValidator {
             }
         }
 
-        if (request.getFullName() == null || request.getFullName().trim().isEmpty()) {
+        if (StringHelper.isBlank(request.getFullName())) {
             errors.add(MessageHelper.getMessage(ErrorCodes.VALIDATION.FULL_NAME_REQUIRED));
         }
 
-        if (request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
-            if (!EMAIL_PATTERN.matcher(request.getEmail().trim()).matches()) {
+        if (StringHelper.isNotBlank(request.getEmail())) {
+            if (!EMAIL_PATTERN.matcher(StringHelper.trim(request.getEmail())).matches()) {
                 errors.add(MessageHelper.getMessage(ErrorCodes.VALIDATION.EMAIL_INVALID));
             }
         }
@@ -65,12 +66,12 @@ public class UserValidator {
 
         List<String> errors = new ArrayList<>();
 
-        if (request.getFullName() == null || request.getFullName().trim().isEmpty()) {
+        if (StringHelper.isBlank(request.getFullName())) {
             errors.add(MessageHelper.getMessage(ErrorCodes.VALIDATION.FULL_NAME_REQUIRED));
         }
 
-        if (request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
-            if (!EMAIL_PATTERN.matcher(request.getEmail().trim()).matches()) {
+        if (StringHelper.isNotBlank(request.getEmail())) {
+            if (!EMAIL_PATTERN.matcher(StringHelper.trim(request.getEmail())).matches()) {
                 errors.add(MessageHelper.getMessage(ErrorCodes.VALIDATION.EMAIL_INVALID));
             }
         }
@@ -87,11 +88,11 @@ public class UserValidator {
 
         List<String> errors = new ArrayList<>();
 
-        if (request.getCurrentPassword() == null || request.getCurrentPassword().trim().isEmpty()) {
+        if (StringHelper.isBlank(request.getCurrentPassword())) {
             errors.add(MessageHelper.getMessage(ErrorCodes.VALIDATION.PASSWORD_REQUIRED));
         }
 
-        if (request.getNewPassword() == null || request.getNewPassword().trim().isEmpty()) {
+        if (StringHelper.isBlank(request.getNewPassword())) {
             errors.add(MessageHelper.getMessage(ErrorCodes.VALIDATION.PASSWORD_REQUIRED));
         } else {
             if (request.getNewPassword().length() < 6) {
@@ -105,11 +106,11 @@ public class UserValidator {
     }
 
     public void validateUpdateStatus(UpdateStatusDTO request) {
-        if (request == null || request.getStatus() == null || request.getStatus().trim().isEmpty()) {
+        if (request == null || StringHelper.isBlank(request.getStatus())) {
             throw new PnException(ErrorCodes.VALIDATION.INVALID_INPUT);
         }
 
-        String status = request.getStatus().trim().toUpperCase();
+        String status = StringHelper.toUpperCase(request.getStatus());
         boolean valid = false;
         if (EStatus.ACTIVE.name().equals(status)) {
             valid = true;

@@ -17,6 +17,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import com.premiernuts.identity.core.utils.StringHelper;
+import com.premiernuts.identity.features.auth.constants.AuthEndpoints;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,14 +26,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping(AuthEndpoints.BASE)
 @RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
     private final AuthValidator authValidator;
 
-    @PostMapping("/login")
+    @PostMapping(AuthEndpoints.LOGIN)
     @LogActivity(requireAuth = false)
     public ResponseEntity<ResponseData<LoginResponseDTO>> login(
             @RequestBody LoginRequestDTO request,
@@ -44,7 +46,7 @@ public class AuthController {
         return ResponseUtils.toSuccess(response);
     }
 
-    @PostMapping("/refresh")
+    @PostMapping(AuthEndpoints.REFRESH)
     @LogActivity(requireAuth = false)
     public ResponseEntity<ResponseData<LoginResponseDTO>> refreshToken(
             @RequestBody RefreshTokenRequestDTO request
@@ -54,7 +56,7 @@ public class AuthController {
         return ResponseUtils.toSuccess(response);
     }
 
-    @PostMapping("/logout")
+    @PostMapping(AuthEndpoints.LOGOUT)
     @LogActivity(requireAuth = true)
     public ResponseEntity<ResponseData<String>> logout() {
         UserPrincipal principal = UserContext.get();
@@ -64,7 +66,7 @@ public class AuthController {
         return ResponseUtils.toSuccess(MessageHelper.getMessage(CommonConstants.MSG_LOGOUT_SUCCESS));
     }
 
-    @GetMapping("/me")
+    @GetMapping(AuthEndpoints.ME)
     @LogActivity(requireAuth = true)
     public ResponseEntity<ResponseData<UserPrincipal>> getMe() {
         UserPrincipal principal = UserContext.get();
@@ -77,8 +79,8 @@ public class AuthController {
 
     private String extractClientIp(HttpServletRequest request) {
         String xf = request.getHeader("X-Forwarded-For");
-        if (xf != null && !xf.isBlank()) {
-            return xf.split(",")[0].trim();
+        if (StringHelper.isNotBlank(xf)) {
+            return StringHelper.trim(xf.split(",")[0]);
         }
         return request.getRemoteAddr();
     }

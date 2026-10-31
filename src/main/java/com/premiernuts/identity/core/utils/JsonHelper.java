@@ -26,7 +26,7 @@ public class JsonHelper {
     }
 
     public static <T> T toObject(String json, Class<T> clazz) {
-        if (json == null || json.trim().isEmpty()) {
+        if (StringHelper.isBlank(json)) {
             return null;
         }
         try {
@@ -37,7 +37,7 @@ public class JsonHelper {
     }
 
     public static JsonNode toObject(String json) {
-        if (json == null || json.trim().isEmpty()) {
+        if (StringHelper.isBlank(json)) {
             return null;
         }
         try {

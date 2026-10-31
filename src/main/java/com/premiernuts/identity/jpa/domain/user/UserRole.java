@@ -38,7 +38,7 @@ public class UserRole {
     @PrePersist
     protected void onCreate() {
         if (this.createdAt == null) {
-            this.createdAt = Instant.now();
+            this.createdAt = com.premiernuts.identity.core.utils.DateTimeHelper.now();
         }
     }
 }

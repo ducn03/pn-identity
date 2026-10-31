@@ -1,31 +1,32 @@
 package com.premiernuts.identity.features.user.service.impl;
 
-import com.premiernuts.identity.core.constants.CommonConstants;
 import com.premiernuts.identity.core.enums.EStatus;
 import com.premiernuts.identity.core.exception.ErrorCodes;
 import com.premiernuts.identity.core.exception.PnException;
 import com.premiernuts.identity.core.utils.PasswordHelper;
+import com.premiernuts.identity.core.utils.StringHelper;
+import com.premiernuts.identity.features.auth.service.TokenStorageService;
 import com.premiernuts.identity.features.user.dto.ChangePasswordDTO;
 import com.premiernuts.identity.features.user.dto.CreateUserDTO;
 import com.premiernuts.identity.features.user.dto.UpdateStatusDTO;
 import com.premiernuts.identity.features.user.dto.UpdateUserDTO;
 import com.premiernuts.identity.features.user.dto.UserDTO;
+import com.premiernuts.identity.features.user.dto.UserSearchDTO;
+import com.premiernuts.identity.features.user.mapper.UserMapper;
 import com.premiernuts.identity.features.user.service.UserService;
 import com.premiernuts.identity.jpa.domain.company.Department;
 import com.premiernuts.identity.jpa.domain.role.Role;
 import com.premiernuts.identity.jpa.domain.user.User;
 import com.premiernuts.identity.jpa.domain.user.UserRole;
-import com.premiernuts.identity.jpa.repository.auth.TokenRepository;
 import com.premiernuts.identity.jpa.repository.company.DepartmentRepository;
 import com.premiernuts.identity.jpa.repository.role.RoleRepository;
 import com.premiernuts.identity.jpa.repository.user.UserRepository;
 import com.premiernuts.identity.jpa.repository.user.UserRoleRepository;
-import jakarta.persistence.criteria.Predicate;
+import com.premiernuts.identity.jpa.repository.user.UserSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,38 +47,18 @@ public class UserServiceImpl implements UserService {
     private final DepartmentRepository departmentRepository;
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
-    private final TokenRepository tokenRepository;
+    private final TokenStorageService tokenStorageService;
+    private final UserMapper userMapper;
 
     @Override
     @Transactional(readOnly = true)
-    public Page<UserDTO> getUsers(Long companyId, String keyword, String status, Long departmentId, Pageable pageable) {
-        Specification<User> spec = (root, query, cb) -> {
-            List<Predicate> predicates = new ArrayList<>();
-            if (companyId != null) {
-                predicates.add(cb.equal(root.get("companyId"), companyId));
-            }
-            if (status != null && !status.isBlank()) {
-                predicates.add(cb.equal(root.get("status"), status.trim()));
-            }
-            if (departmentId != null) {
-                predicates.add(cb.equal(root.get("departmentId"), departmentId));
-            }
-            if (keyword != null && !keyword.isBlank()) {
-                String pattern = "%" + keyword.trim().toLowerCase() + "%";
-                Predicate pUsername = cb.like(cb.lower(root.get("username")), pattern);
-                Predicate pFullName = cb.like(cb.lower(root.get("fullName")), pattern);
-                Predicate pEmail = cb.like(cb.lower(root.get("email")), pattern);
-                Predicate pPhone = cb.like(cb.lower(root.get("phone")), pattern);
-                predicates.add(cb.or(pUsername, pFullName, pEmail, pPhone));
-            }
-            return cb.and(predicates.toArray(new Predicate[0]));
-        };
-
-        Page<User> page = userRepository.findAll(spec, pageable);
+    public Page<UserDTO> getUsers(UserSearchDTO searchDTO, Pageable pageable) {
+        Page<User> page = userRepository.findAll(UserSpecification.filter(searchDTO), pageable);
         if (page.isEmpty()) {
             return page.map(u -> null);
         }
 
+        // Tối ưu batch fetch departments
         List<Long> deptIds = page.getContent().stream()
                 .map(User::getDepartmentId)
                 .filter(id -> id != null && id > 0)
@@ -92,6 +73,7 @@ public class UserServiceImpl implements UserService {
             }
         }
 
+        // Tối ưu batch fetch roles
         List<Long> userIds = page.getContent().stream().map(User::getId).toList();
         List<UserRole> allUserRoles = userRoleRepository.findAllByUserIdIn(userIds);
         List<Long> roleIds = allUserRoles.stream().map(UserRole::getRoleId).distinct().toList();
@@ -122,7 +104,7 @@ public class UserServiceImpl implements UserService {
                 deptName = deptNameMap.get(user.getDepartmentId());
             }
 
-            return toDTO(user, deptName, roleCodes, userRoleIds);
+            return userMapper.toDTO(user, deptName, roleCodes, userRoleIds);
         });
     }
 
@@ -153,46 +135,25 @@ public class UserServiceImpl implements UserService {
             }
         }
 
-        return toDTO(user, deptName, roleCodes, roleIds);
+        return userMapper.toDTO(user, deptName, roleCodes, roleIds);
     }
 
     @Override
     @Transactional
     public UserDTO createUser(CreateUserDTO request, Long defaultCompanyId) {
-        String username = request.getUsername().trim().toLowerCase();
+        String username = StringHelper.toLowerCase(request.getUsername());
         if (userRepository.existsByUsername(username)) {
             throw new PnException(ErrorCodes.USER.USERNAME_ALREADY_EXISTS);
         }
 
-        if (request.getEmail() != null && !request.getEmail().isBlank()) {
-            String email = request.getEmail().trim().toLowerCase();
+        if (StringHelper.isNotBlank(request.getEmail())) {
+            String email = StringHelper.toLowerCase(request.getEmail());
             if (userRepository.existsByEmail(email)) {
                 throw new PnException(ErrorCodes.USER.EMAIL_ALREADY_EXISTS);
             }
         }
 
-        Long companyId = defaultCompanyId;
-        if (request.getCompanyId() != null) {
-            companyId = request.getCompanyId();
-        }
-        if (companyId == null) {
-            companyId = CommonConstants.DEFAULT_COMPANY_ID;
-        }
-
-        User user = new User();
-        user.setCompanyId(companyId);
-        user.setDepartmentId(request.getDepartmentId());
-        user.setUsername(username);
-        user.setPasswordHash(PasswordHelper.hash(request.getPassword()));
-        user.setFullName(request.getFullName().trim());
-        if (request.getEmail() != null) {
-            user.setEmail(request.getEmail().trim().toLowerCase());
-        }
-        if (request.getPhone() != null) {
-            user.setPhone(request.getPhone().trim());
-        }
-        user.setStatus(EStatus.ACTIVE.name());
-
+        User user = userMapper.toEntity(request, defaultCompanyId);
         user = userRepository.save(user);
 
         // Lưu vai trò
@@ -217,8 +178,8 @@ public class UserServiceImpl implements UserService {
         }
         User user = userOpt.get();
 
-        if (request.getEmail() != null && !request.getEmail().isBlank()) {
-            String email = request.getEmail().trim().toLowerCase();
+        if (StringHelper.isNotBlank(request.getEmail())) {
+            String email = StringHelper.toLowerCase(request.getEmail());
             Optional<User> existing = userRepository.findByEmail(email);
             if (existing.isPresent() && !existing.get().getId().equals(user.getId())) {
                 throw new PnException(ErrorCodes.USER.EMAIL_ALREADY_EXISTS);
@@ -226,15 +187,7 @@ public class UserServiceImpl implements UserService {
             user.setEmail(email);
         }
 
-        user.setFullName(request.getFullName().trim());
-        if (request.getPhone() != null) {
-            user.setPhone(request.getPhone().trim());
-        }
-        user.setDepartmentId(request.getDepartmentId());
-        if (request.getAvatarUrl() != null) {
-            user.setAvatarUrl(request.getAvatarUrl());
-        }
-
+        userMapper.updateEntity(user, request);
         user = userRepository.save(user);
 
         // Cập nhật vai trò nếu có truyền vào
@@ -260,12 +213,12 @@ public class UserServiceImpl implements UserService {
         }
         User user = userOpt.get();
 
-        user.setStatus(request.getStatus().trim().toUpperCase());
+        user.setStatus(StringHelper.toUpperCase(request.getStatus()));
         userRepository.save(user);
 
-        // Nếu trạng thái khác ACTIVE -> thu hồi toàn bộ token đăng nhập
+        // Nếu trạng thái khác ACTIVE -> thu hồi toàn bộ token qua TokenStorageService
         if (!EStatus.ACTIVE.name().equalsIgnoreCase(request.getStatus())) {
-            tokenRepository.deleteAllByUserId(user.getId());
+            tokenStorageService.revokeAllUserTokens(user.getId());
             log.info("Revoked active tokens for user id {} due to status change to {}", user.getId(), request.getStatus());
         }
     }
@@ -287,7 +240,7 @@ public class UserServiceImpl implements UserService {
         userRepository.save(user);
 
         // Đổi mật khẩu thành công thì hủy các token cũ để bắt buộc đăng nhập lại
-        tokenRepository.deleteAllByUserId(user.getId());
+        tokenStorageService.revokeAllUserTokens(user.getId());
         log.info("Password changed and active sessions revoked for user: {}", user.getUsername());
     }
 
@@ -303,27 +256,7 @@ public class UserServiceImpl implements UserService {
         user.setPasswordHash(PasswordHelper.hash(newPassword));
         userRepository.save(user);
 
-        tokenRepository.deleteAllByUserId(user.getId());
+        tokenStorageService.revokeAllUserTokens(user.getId());
         log.info("Admin reset password for user: {}", user.getUsername());
-    }
-
-    private UserDTO toDTO(User user, String deptName, List<String> roleCodes, List<Long> roleIds) {
-        UserDTO dto = new UserDTO();
-        dto.setId(user.getId());
-        dto.setCompanyId(user.getCompanyId());
-        dto.setDepartmentId(user.getDepartmentId());
-        dto.setDepartmentName(deptName);
-        dto.setUsername(user.getUsername());
-        dto.setFullName(user.getFullName());
-        dto.setEmail(user.getEmail());
-        dto.setPhone(user.getPhone());
-        dto.setAvatarUrl(user.getAvatarUrl());
-        dto.setStatus(user.getStatus());
-        dto.setLastLoginAt(user.getLastLoginAt());
-        dto.setCreatedAt(user.getCreatedAt());
-        dto.setUpdatedAt(user.getUpdatedAt());
-        dto.setRoles(roleCodes);
-        dto.setRoleIds(roleIds);
-        return dto;
     }
 }

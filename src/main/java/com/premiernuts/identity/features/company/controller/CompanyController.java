@@ -17,17 +17,18 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.premiernuts.identity.features.company.constants.CompanyEndpoints;
 import java.util.List;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping(CompanyEndpoints.BASE)
 @RequiredArgsConstructor
 public class CompanyController {
 
     private final CompanyService companyService;
 
-    @GetMapping("/company")
+    @GetMapping(CompanyEndpoints.COMPANY)
     @LogActivity(requireAuth = true)
     public ResponseEntity<ResponseData<CompanyDTO>> getMyCompany() {
         UserPrincipal principal = UserContext.get();
@@ -40,7 +41,7 @@ public class CompanyController {
         return ResponseUtils.toSuccess(company);
     }
 
-    @GetMapping("/departments")
+    @GetMapping(CompanyEndpoints.DEPARTMENTS)
     @LogActivity(requireAuth = true)
     public ResponseEntity<ResponseData<List<DepartmentDTO>>> getDepartments() {
         UserPrincipal principal = UserContext.get();
@@ -53,7 +54,7 @@ public class CompanyController {
         return ResponseUtils.toSuccess(list);
     }
 
-    @GetMapping("/roles")
+    @GetMapping(CompanyEndpoints.ROLES)
     @LogActivity(requireAuth = true)
     public ResponseEntity<ResponseData<List<RoleDTO>>> getRoles() {
         List<RoleDTO> list = companyService.getRoles();

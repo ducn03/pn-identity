@@ -1,6 +1,7 @@
-package com.premiernuts.identity.jpa.domain.base;
+package com.premiernuts.identity.jpa.domain;
 
 import com.premiernuts.identity.core.enums.EStatus;
+import com.premiernuts.identity.core.utils.DateTimeHelper;
 import jakarta.persistence.Column;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -35,10 +36,10 @@ public abstract class BaseEntity {
     @PrePersist
     protected void onCreate() {
         if (this.createdAt == null) {
-            this.createdAt = Instant.now();
+            this.createdAt = DateTimeHelper.now();
         }
         if (this.updatedAt == null) {
-            this.updatedAt = Instant.now();
+            this.updatedAt = DateTimeHelper.now();
         }
         if (this.status == null) {
             this.status = EStatus.ACTIVE.name();
@@ -47,6 +48,6 @@ public abstract class BaseEntity {
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = Instant.now();
+        this.updatedAt = DateTimeHelper.now();
     }
 }

@@ -3,6 +3,7 @@ package com.premiernuts.identity.features.auth.validator;
 import com.premiernuts.identity.core.exception.ErrorCodes;
 import com.premiernuts.identity.core.exception.PnException;
 import com.premiernuts.identity.core.utils.MessageHelper;
+import com.premiernuts.identity.core.utils.StringHelper;
 import com.premiernuts.identity.features.auth.dto.LoginRequestDTO;
 import com.premiernuts.identity.features.auth.dto.RefreshTokenRequestDTO;
 import org.springframework.stereotype.Component;
@@ -20,11 +21,11 @@ public class AuthValidator {
 
         List<String> errors = new ArrayList<>();
 
-        if (request.getUsername() == null || request.getUsername().trim().isEmpty()) {
+        if (StringHelper.isBlank(request.getUsername())) {
             errors.add(MessageHelper.getMessage(ErrorCodes.VALIDATION.USERNAME_REQUIRED));
         }
 
-        if (request.getPassword() == null || request.getPassword().trim().isEmpty()) {
+        if (StringHelper.isBlank(request.getPassword())) {
             errors.add(MessageHelper.getMessage(ErrorCodes.VALIDATION.PASSWORD_REQUIRED));
         }
 
@@ -38,7 +39,7 @@ public class AuthValidator {
             throw new PnException(ErrorCodes.VALIDATION.INVALID_INPUT);
         }
 
-        if (request.getRefreshToken() == null || request.getRefreshToken().trim().isEmpty()) {
+        if (StringHelper.isBlank(request.getRefreshToken())) {
             throw new PnException(ErrorCodes.VALIDATION.REFRESH_TOKEN_REQUIRED);
         }
     }

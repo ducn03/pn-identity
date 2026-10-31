@@ -5,12 +5,13 @@ import com.premiernuts.identity.features.user.dto.CreateUserDTO;
 import com.premiernuts.identity.features.user.dto.UpdateStatusDTO;
 import com.premiernuts.identity.features.user.dto.UpdateUserDTO;
 import com.premiernuts.identity.features.user.dto.UserDTO;
+import com.premiernuts.identity.features.user.dto.UserSearchDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface UserService {
 
-    Page<UserDTO> getUsers(Long companyId, String keyword, String status, Long departmentId, Pageable pageable);
+    Page<UserDTO> getUsers(UserSearchDTO searchDTO, Pageable pageable);
 
     UserDTO getUserById(Long id);
 
