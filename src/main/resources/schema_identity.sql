@@ -151,9 +151,9 @@ INSERT INTO M_COMPANY (code, name, tax_code, email, phone, address, website, sta
 VALUES (
     'PREMIER_NUTS',
     'Công Ty Cổ Phần Nông Sản Premier Nuts',
-    '0318999888',
+    '3502320150',
     'contact@premiernuts.vn',
-    '028.3822.9999',
+    '0949382374',
     'Khu Công Nghiệp Đồng Xoài, Tỉnh Bình Phước, Việt Nam',
     'https://premiernuts.vn',
     'ACTIVE'
