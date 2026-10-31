@@ -1,8 +1,11 @@
 package com.premiernuts.identity.features.user.service.impl;
 
+import com.premiernuts.identity.core.enums.ERole;
 import com.premiernuts.identity.core.enums.EStatus;
 import com.premiernuts.identity.core.exception.ErrorCodes;
 import com.premiernuts.identity.core.exception.PnException;
+import com.premiernuts.identity.core.security.UserContext;
+import com.premiernuts.identity.core.security.UserPrincipal;
 import com.premiernuts.identity.core.utils.PasswordHelper;
 import com.premiernuts.identity.core.utils.StringHelper;
 import com.premiernuts.identity.features.auth.service.TokenStorageService;
@@ -153,6 +156,9 @@ public class UserServiceImpl implements UserService {
             }
         }
 
+        // Chỉ Admin mới có quyền gán quyền Admin
+        validateAdminRoleAssignment(request.getRoleIds());
+
         User user = userMapper.toEntity(request, defaultCompanyId);
         user = userRepository.save(user);
 
@@ -190,8 +196,9 @@ public class UserServiceImpl implements UserService {
         userMapper.updateEntity(user, request);
         user = userRepository.save(user);
 
-        // Cập nhật vai trò nếu có truyền vào
+        // Cập nhật vai trò nếu có truyền vào (chỉ Admin mới được gán vai trò Admin)
         if (request.getRoleIds() != null) {
+            validateAdminRoleAssignment(request.getRoleIds());
             userRoleRepository.deleteAllByUserId(user.getId());
             for (Long roleId : request.getRoleIds()) {
                 UserRole ur = new UserRole();
@@ -202,6 +209,25 @@ public class UserServiceImpl implements UserService {
         }
 
         return getUserById(user.getId());
+    }
+
+    private void validateAdminRoleAssignment(List<Long> roleIds) {
+        if (roleIds == null || roleIds.isEmpty()) {
+            return;
+        }
+
+        List<Role> roles = roleRepository.findAllByIdIn(roleIds);
+        boolean containsAdminRole = roles.stream().anyMatch(r ->
+                ERole.Names.ROLE_ADMIN.equalsIgnoreCase(r.getCode()) ||
+                ERole.Names.SUPER_ADMIN.equalsIgnoreCase(r.getCode())
+        );
+
+        if (containsAdminRole) {
+            UserPrincipal principal = UserContext.get();
+            if (principal == null || (!principal.hasRole(ERole.Names.ROLE_ADMIN) && !principal.hasRole(ERole.Names.SUPER_ADMIN))) {
+                throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
+            }
+        }
     }
 
     @Override
