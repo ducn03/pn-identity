@@ -41,11 +41,11 @@ Nếu cài mới PostgreSQL, bạn tạo database và nạp schema theo 1 trong 
   & "D:\PostgreSQL\18\bin\psql.exe" -U postgres -h localhost -p 5432 -c "CREATE DATABASE premiernutserp OWNER root;"
 
   # Nạp schema và dữ liệu mẫu
-  & "D:\PostgreSQL\18\bin\psql.exe" -U root -d premiernutserp -h localhost -p 5432 -f "D:\tools\mProject\premier-nuts-erp\pn-identity\src\main\resources\schema_identity.sql"
+  & "D:\PostgreSQL\18\bin\psql.exe" -U root -d premiernutserp -h localhost -p 5432 -f "D:\tools\mProject\premier-nuts-erp\pn-identity\src\main\resources\schema-erp.sql"
   ```
 
 * **Cách 2: Chạy trực tiếp trong IntelliJ IDEA / DataGrip:**
-  1. Mở file [schema_identity.sql](file:///d:/tools/mProject/premier-nuts-erp/pn-identity/src/main/resources/schema_identity.sql).
+  1. Mở file [schema-erp.sql](file:///d:/tools/mProject/premier-nuts-erp/pn-identity/src/main/resources/schema-erp.sql).
   2. Bấm nút **Execute (Ctrl + Enter)** và chọn Data Source `postgres@premiernuts-erp`.
 
 ---
@@ -171,4 +171,4 @@ Dự án được phân rã thành 2 khối rõ ràng:
 
 ## 📚 Tài liệu tham khảo
 * **Bản vẽ thiết kế ERD:** [ERD_IDENTITY.md](file:///d:/tools/mProject/premier-nuts-erp/pn-identity/src/main/resources/ERD_IDENTITY.md)
-* **Kịch bản Database DDL:** [schema_identity.sql](file:///d:/tools/mProject/premier-nuts-erp/pn-identity/src/main/resources/schema_identity.sql)
+* **Kịch bản Database DDL:** [schema-erp.sql](file:///d:/tools/mProject/premier-nuts-erp/pn-identity/src/main/resources/schema-erp.sql)

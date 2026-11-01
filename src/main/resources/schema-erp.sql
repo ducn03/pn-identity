@@ -1,12 +1,12 @@
 -- ==============================================================================
--- PREMIER NUTS ERP - DATABASE IDENTITY & AUTHENTICATION SCHEMA
+-- PREMIER NUTS ERP - DATABASE SCHEMA (schema-erp)
 -- Database Engine : PostgreSQL
 -- Database Name   : premiernutserp
 -- Design Rules    :
 --   1. Phân cấp doanh nghiệp: Đi từ Công ty (M_COMPANY) -> Phòng ban (M_DEPARTMENT) -> Nhân viên (T_USER)
 --   2. Đặt tên VIẾT HOA:
 --        M_ : Bảng Master (danh mục nền tảng: Company, Department, Role, Permission)
---        T_ : Bảng Transaction (nghiệp vụ: User, Token, LoginLog)
+--        T_ : Bảng Transaction (nghiệp vụ: User, Token, LoginLog, Finance, Contract)
 --   3. Chuẩn hóa audit: Mọi bảng (trừ bảng trung gian) đều có status, created_at, updated_at
 --   4. ID tự sinh hoàn toàn (BIGSERIAL) - KHÔNG chèn cứng ID thủ công
 --   5. Khóa ngoại logic ở mức ứng dụng (KHÔNG tạo ràng buộc FOREIGN KEY ở DB)
