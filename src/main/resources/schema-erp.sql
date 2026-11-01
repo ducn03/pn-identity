@@ -5,7 +5,7 @@
 -- Design Rules    :
 --   1. Phân cấp doanh nghiệp: Đi từ Công ty (M_COMPANY) -> Phòng ban (M_DEPARTMENT) -> Nhân viên (T_USER)
 --   2. Đặt tên VIẾT HOA:
---        M_ : Bảng Master (danh mục nền tảng: Company, Department, Role, Permission)
+--        M_ : Bảng Master (danh mục nền tảng: Company, Department, Role, Permission, Bank)
 --        T_ : Bảng Transaction (nghiệp vụ: User, Token, LoginLog, Finance, Contract)
 --   3. Chuẩn hóa audit: Mọi bảng (trừ bảng trung gian) đều có status, created_at, updated_at
 --   4. ID tự sinh hoàn toàn (BIGSERIAL) - KHÔNG chèn cứng ID thủ công
@@ -74,7 +74,21 @@ CREATE TABLE IF NOT EXISTS M_PERMISSION (
 );
 
 -- ------------------------------------------------------------------------------
--- 5. BẢNG TRANSACTION: TÀI KHOẢN NHÂN VIÊN / NGƯỜI DÙNG
+-- 5. BẢNG MASTER: DANH MỤC NGÂN HÀNG (HỆ THỐNG VIETQR / NAPAS)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS M_BANK (
+    id BIGSERIAL PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,            -- VCB, MB, TCB, BIDV, CTG, ACB, VPB...
+    name VARCHAR(150) NOT NULL,                  -- Ngân hàng TMCP Ngoại thương Việt Nam
+    short_name VARCHAR(50) NOT NULL,             -- Vietcombank, MBBank, Techcombank...
+    bin VARCHAR(20),                             -- Mã BIN định danh VietQR (ví dụ 970436)
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, INACTIVE
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ------------------------------------------------------------------------------
+-- 6. BẢNG TRANSACTION: TÀI KHOẢN NHÂN VIÊN / NGƯỜI DÙNG
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS T_USER (
     id BIGSERIAL PRIMARY KEY,
@@ -161,8 +175,8 @@ CREATE TABLE IF NOT EXISTS T_LOGIN_LOG (
 CREATE TABLE IF NOT EXISTS T_USER_FINANCE (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL UNIQUE,              -- Khóa ngoại logic 1:1 tới T_USER.id
+    bank_id BIGINT,                              -- Khóa ngoại logic tới M_BANK.id
     bank_account_no VARCHAR(50),                 -- Số tài khoản nhận lương
-    bank_name VARCHAR(100),                      -- Tên ngân hàng (Vietcombank, MB, Techcombank...)
     bank_branch VARCHAR(100),                    -- Chi nhánh mở tài khoản
     tax_code VARCHAR(50),                        -- Mã số thuế cá nhân
     dependents_count INT NOT NULL DEFAULT 0,     -- Số người phụ thuộc giảm trừ gia cảnh
@@ -404,4 +418,19 @@ JOIN T_ROLE_PERMISSION rp ON rp.role_id = u.role_id
 WHERE NOT EXISTS (
     SELECT 1 FROM T_USER_PERMISSION up WHERE up.user_id = u.id AND up.permission_id = rp.permission_id
 );
+
+-- 8. Seed M_BANK (Danh mục ngân hàng phổ biến tại Việt Nam)
+INSERT INTO M_BANK (code, name, short_name, bin, status)
+VALUES 
+    ('VCB', 'Ngân hàng TMCP Ngoại thương Việt Nam', 'Vietcombank', '970436', 'ACTIVE'),
+    ('MB', 'Ngân hàng TMCP Quân đội', 'MBBank', '970422', 'ACTIVE'),
+    ('TCB', 'Ngân hàng TMCP Kỹ thương Việt Nam', 'Techcombank', '970407', 'ACTIVE'),
+    ('BIDV', 'Ngân hàng TMCP Đầu tư và Phát triển Việt Nam', 'BIDV', '970418', 'ACTIVE'),
+    ('CTG', 'Ngân hàng TMCP Công thương Việt Nam', 'VietinBank', '970415', 'ACTIVE'),
+    ('ACB', 'Ngân hàng TMCP Á Châu', 'ACB', '970416', 'ACTIVE'),
+    ('VPB', 'Ngân hàng TMCP Việt Nam Thịnh Vượng', 'VPBank', '970432', 'ACTIVE'),
+    ('VBA', 'Ngân hàng Nông nghiệp và Phát triển Nông thôn Việt Nam', 'Agribank', '970405', 'ACTIVE'),
+    ('TPB', 'Ngân hàng TMCP Tiên Phong', 'TPBank', '970423', 'ACTIVE'),
+    ('STB', 'Ngân hàng TMCP Sài Gòn Thương Tín', 'Sacombank', '970403', 'ACTIVE')
+ON CONFLICT (code) DO NOTHING;
 
