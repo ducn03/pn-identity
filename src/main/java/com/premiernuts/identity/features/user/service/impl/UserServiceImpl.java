@@ -23,14 +23,12 @@ import com.premiernuts.identity.jpa.domain.role.Role;
 import com.premiernuts.identity.jpa.domain.role.RolePermission;
 import com.premiernuts.identity.jpa.domain.user.User;
 import com.premiernuts.identity.jpa.domain.user.UserPermission;
-import com.premiernuts.identity.jpa.domain.user.UserRole;
 import com.premiernuts.identity.jpa.repository.company.DepartmentRepository;
 import com.premiernuts.identity.jpa.repository.role.PermissionRepository;
 import com.premiernuts.identity.jpa.repository.role.RolePermissionRepository;
 import com.premiernuts.identity.jpa.repository.role.RoleRepository;
 import com.premiernuts.identity.jpa.repository.user.UserPermissionRepository;
 import com.premiernuts.identity.jpa.repository.user.UserRepository;
-import com.premiernuts.identity.jpa.repository.user.UserRoleRepository;
 import com.premiernuts.identity.jpa.repository.user.UserSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -55,7 +53,6 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final DepartmentRepository departmentRepository;
     private final RoleRepository roleRepository;
-    private final UserRoleRepository userRoleRepository;
     private final UserPermissionRepository userPermissionRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final PermissionRepository permissionRepository;
@@ -85,32 +82,23 @@ public class UserServiceImpl implements UserService {
             }
         }
 
-        // Tối ưu batch fetch roles (cả từ T_USER_ROLE và T_USER.role_id)
-        List<Long> userIds = page.getContent().stream().map(User::getId).toList();
-        List<UserRole> allUserRoles = userRoleRepository.findAllByUserIdIn(userIds);
-        List<Long> allRoleIds = new ArrayList<>();
-        for (UserRole ur : allUserRoles) {
-            allRoleIds.add(ur.getRoleId());
-        }
-        for (User u : page.getContent()) {
-            if (u.getRoleId() != null) {
-                allRoleIds.add(u.getRoleId());
-            }
-        }
-        List<Long> distinctRoleIds = allRoleIds.stream().distinct().toList();
+        // Tối ưu batch fetch roles từ T_USER.role_id
+        List<Long> roleIds = page.getContent().stream()
+                .map(User::getRoleId)
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .toList();
 
         Map<Long, Role> roleMap = new HashMap<>();
-        if (!distinctRoleIds.isEmpty()) {
-            List<Role> roles = roleRepository.findAllByIdIn(distinctRoleIds);
+        if (!roleIds.isEmpty()) {
+            List<Role> roles = roleRepository.findAllByIdIn(roleIds);
             for (Role r : roles) {
                 roleMap.put(r.getId(), r);
             }
         }
 
-        Map<Long, List<UserRole>> userRoleMap = allUserRoles.stream()
-                .collect(Collectors.groupingBy(UserRole::getUserId));
-
-        // Tối ưu batch fetch user permissions
+        // Tối ưu batch fetch user permissions từ T_USER_PERMISSION
+        List<Long> userIds = page.getContent().stream().map(User::getId).toList();
         List<UserPermission> allUserPerms = userPermissionRepository.findAllByUserIdIn(userIds);
         List<Long> allPermIds = allUserPerms.stream().map(UserPermission::getPermissionId).distinct().toList();
         Map<Long, Permission> permMap = new HashMap<>();
@@ -124,27 +112,18 @@ public class UserServiceImpl implements UserService {
                 .collect(Collectors.groupingBy(UserPermission::getUserId));
 
         return page.map(user -> {
-            List<UserRole> userRoles = userRoleMap.getOrDefault(user.getId(), Collections.emptyList());
-            List<Long> userRoleIds = userRoles.stream().map(UserRole::getRoleId).toList();
-            List<String> roleCodes = new ArrayList<>();
-            for (Long rId : userRoleIds) {
-                if (roleMap.containsKey(rId)) {
-                    roleCodes.add(roleMap.get(rId).getCode());
-                }
-            }
-
             Long primaryRoleId = user.getRoleId();
             String primaryRoleCode = null;
             String primaryRoleName = null;
+            List<String> roleCodes = new ArrayList<>();
+            List<Long> userRoleIds = new ArrayList<>();
+
             if (primaryRoleId != null && roleMap.containsKey(primaryRoleId)) {
                 Role r = roleMap.get(primaryRoleId);
                 primaryRoleCode = r.getCode();
                 primaryRoleName = r.getName();
-                if (!roleCodes.contains(primaryRoleCode)) {
-                    roleCodes.add(0, primaryRoleCode);
-                }
-            } else if (!roleCodes.isEmpty()) {
-                primaryRoleCode = roleCodes.get(0);
+                roleCodes.add(primaryRoleCode);
+                userRoleIds.add(primaryRoleId);
             }
 
             String deptName = null;
@@ -193,25 +172,20 @@ public class UserServiceImpl implements UserService {
             }
         }
 
-        List<UserRole> userRoles = userRoleRepository.findAllByUserId(user.getId());
-        List<Long> roleIds = new ArrayList<>(userRoles.stream().map(UserRole::getRoleId).toList());
-        if (user.getRoleId() != null && !roleIds.contains(user.getRoleId())) {
-            roleIds.add(0, user.getRoleId());
-        }
-
-        List<String> roleCodes = new ArrayList<>();
         Long primaryRoleId = user.getRoleId();
         String primaryRoleCode = null;
         String primaryRoleName = null;
+        List<String> roleCodes = new ArrayList<>();
+        List<Long> roleIds = new ArrayList<>();
 
-        if (!roleIds.isEmpty()) {
-            List<Role> roles = roleRepository.findAllByIdIn(roleIds);
-            for (Role r : roles) {
-                roleCodes.add(r.getCode());
-                if (primaryRoleId != null && primaryRoleId.equals(r.getId())) {
-                    primaryRoleCode = r.getCode();
-                    primaryRoleName = r.getName();
-                }
+        if (primaryRoleId != null) {
+            Optional<Role> roleOpt = roleRepository.findById(primaryRoleId);
+            if (roleOpt.isPresent()) {
+                Role r = roleOpt.get();
+                primaryRoleCode = r.getCode();
+                primaryRoleName = r.getName();
+                roleCodes.add(primaryRoleCode);
+                roleIds.add(primaryRoleId);
             }
         }
 
@@ -254,30 +228,17 @@ public class UserServiceImpl implements UserService {
             }
         }
 
+        Long selectedRoleId = request.getRoleId();
+        if (selectedRoleId == null && request.getRoleIds() != null && !request.getRoleIds().isEmpty()) {
+            selectedRoleId = request.getRoleIds().get(0);
+        }
+
         // Chỉ Admin mới có quyền gán quyền Admin
-        validateAdminRoleAssignment(request.getRoleId(), request.getRoleIds());
+        validateAdminRoleAssignment(selectedRoleId);
 
         User user = userMapper.toEntity(request, defaultCompanyId);
+        user.setRoleId(selectedRoleId);
         user = userRepository.save(user);
-
-        // Lưu vai trò vào bảng tương thích ngược T_USER_ROLE
-        Long assignedRoleId = user.getRoleId();
-        if (assignedRoleId != null) {
-            UserRole ur = new UserRole();
-            ur.setUserId(user.getId());
-            ur.setRoleId(assignedRoleId);
-            userRoleRepository.save(ur);
-        }
-        if (request.getRoleIds() != null && !request.getRoleIds().isEmpty()) {
-            for (Long roleId : request.getRoleIds()) {
-                if (assignedRoleId == null || !assignedRoleId.equals(roleId)) {
-                    UserRole ur = new UserRole();
-                    ur.setUserId(user.getId());
-                    ur.setRoleId(roleId);
-                    userRoleRepository.save(ur);
-                }
-            }
-        }
 
         // Lưu permissions trực tiếp vào T_USER_PERMISSION
         if (request.getPermissionIds() != null && !request.getPermissionIds().isEmpty()) {
@@ -288,9 +249,9 @@ public class UserServiceImpl implements UserService {
                 up.setPermissionId(pId);
                 userPermissionRepository.save(up);
             }
-        } else if (assignedRoleId != null) {
-            // Không truyền tùy biến -> tự động copy khuôn mẫu permissions từ Role Template
-            List<RolePermission> templatePerms = rolePermissionRepository.findAllByRoleId(assignedRoleId);
+        } else if (selectedRoleId != null) {
+            // Tự động sao chép danh sách quyền mặc định từ Role Template
+            List<RolePermission> templatePerms = rolePermissionRepository.findAllByRoleId(selectedRoleId);
             for (RolePermission rp : templatePerms) {
                 UserPermission up = new UserPermission();
                 up.setUserId(user.getId());
@@ -320,32 +281,18 @@ public class UserServiceImpl implements UserService {
             user.setEmail(email);
         }
 
-        validateAdminRoleAssignment(request.getRoleId(), request.getRoleIds());
+        Long targetRoleId = request.getRoleId();
+        if (targetRoleId == null && request.getRoleIds() != null && !request.getRoleIds().isEmpty()) {
+            targetRoleId = request.getRoleIds().get(0);
+        }
+
+        validateAdminRoleAssignment(targetRoleId);
 
         userMapper.updateEntity(user, request);
-        user = userRepository.save(user);
-
-        // Cập nhật T_USER_ROLE
-        Long updatedRoleId = user.getRoleId();
-        if (request.getRoleIds() != null || updatedRoleId != null) {
-            userRoleRepository.deleteAllByUserId(user.getId());
-            if (updatedRoleId != null) {
-                UserRole ur = new UserRole();
-                ur.setUserId(user.getId());
-                ur.setRoleId(updatedRoleId);
-                userRoleRepository.save(ur);
-            }
-            if (request.getRoleIds() != null) {
-                for (Long roleId : request.getRoleIds()) {
-                    if (updatedRoleId == null || !updatedRoleId.equals(roleId)) {
-                        UserRole ur = new UserRole();
-                        ur.setUserId(user.getId());
-                        ur.setRoleId(roleId);
-                        userRoleRepository.save(ur);
-                    }
-                }
-            }
+        if (targetRoleId != null) {
+            user.setRoleId(targetRoleId);
         }
+        user = userRepository.save(user);
 
         // Cập nhật T_USER_PERMISSION nếu có truyền danh sách mới
         if (request.getPermissionIds() != null) {
@@ -361,27 +308,23 @@ public class UserServiceImpl implements UserService {
         return getUserById(user.getId());
     }
 
-    private void validateAdminRoleAssignment(Long roleId, List<Long> roleIds) {
-        List<Long> allRoleIds = new ArrayList<>();
-        if (roleId != null) {
-            allRoleIds.add(roleId);
-        }
-        if (roleIds != null) {
-            allRoleIds.addAll(roleIds);
-        }
-        if (allRoleIds.isEmpty()) {
+    private void validateAdminRoleAssignment(Long roleId) {
+        if (roleId == null) {
             return;
         }
 
-        List<Role> roles = roleRepository.findAllByIdIn(allRoleIds);
-        boolean containsAdminRole = roles.stream().anyMatch(r ->
-                ERole.Names.ROLE_ADMIN.equalsIgnoreCase(r.getCode()) ||
-                ERole.Names.SUPER_ADMIN.equalsIgnoreCase(r.getCode())
-        );
+        Optional<Role> roleOpt = roleRepository.findById(roleId);
+        if (roleOpt.isEmpty()) {
+            return;
+        }
 
-        if (containsAdminRole) {
+        Role role = roleOpt.get();
+        boolean isAdminRole = ERole.ROLE_ADMIN.name().equalsIgnoreCase(role.getCode())
+                || ERole.SUPER_ADMIN.name().equalsIgnoreCase(role.getCode());
+
+        if (isAdminRole) {
             UserPrincipal principal = UserContext.get();
-            if (principal == null || (!principal.hasRole(ERole.Names.ROLE_ADMIN) && !principal.hasRole(ERole.Names.SUPER_ADMIN))) {
+            if (principal == null || (!principal.hasRole(ERole.ROLE_ADMIN.name()) && !principal.hasRole(ERole.SUPER_ADMIN.name()))) {
                 throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
             }
         }
@@ -443,3 +386,4 @@ public class UserServiceImpl implements UserService {
         log.info("Admin reset password for user: {}", user.getUsername());
     }
 }
+

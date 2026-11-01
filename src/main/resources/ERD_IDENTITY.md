@@ -75,6 +75,7 @@ erDiagram
         bigint id PK "Tự sinh (BIGSERIAL)"
         bigint company_id "FK logic M_COMPANY.id"
         bigint department_id "FK logic M_DEPARTMENT.id"
+        bigint role_id "FK logic M_ROLE.id (Chức danh / Template)"
         varchar username UK
         varchar password_hash
         varchar full_name
@@ -87,10 +88,10 @@ erDiagram
         timestamptz updated_at
     }
 
-    T_USER_ROLE {
+    T_USER_PERMISSION {
         bigint id PK "Tự sinh (BIGSERIAL)"
         bigint user_id "FK logic T_USER.id"
-        bigint role_id "FK logic M_ROLE.id"
+        bigint permission_id "FK logic M_PERMISSION.id"
         bigint assigned_by "FK logic T_USER.id"
         timestamptz created_at
     }
@@ -128,10 +129,11 @@ erDiagram
     M_COMPANY ||--o{ M_DEPARTMENT : "quản lý phòng ban"
     M_COMPANY ||--o{ T_USER : "quản lý nhân viên"
     M_DEPARTMENT ||--o{ T_USER : "chứa nhân viên"
-    T_USER ||--o{ T_USER_ROLE : "được gán vai trò"
-    M_ROLE ||--o{ T_USER_ROLE : "gán cho nhân viên"
-    M_ROLE ||--o{ T_ROLE_PERMISSION : "chứa quyền hạn"
-    M_PERMISSION ||--o{ T_ROLE_PERMISSION : "gán cho vai trò"
+    M_ROLE ||--o{ T_USER : "chức danh / template vai trò"
+    T_USER ||--o{ T_USER_PERMISSION : "sở hữu quyền hạn trực tiếp"
+    M_PERMISSION ||--o{ T_USER_PERMISSION : "gán trực tiếp cho nhân viên"
+    M_ROLE ||--o{ T_ROLE_PERMISSION : "chứa quyền hạn mẫu"
+    M_PERMISSION ||--o{ T_ROLE_PERMISSION : "thuộc vai trò mẫu"
     T_USER ||--o{ T_TOKEN : "sở hữu phiên đăng nhập"
     T_USER ||--o{ T_LOGIN_LOG : "ghi nhật ký truy cập"
 ```

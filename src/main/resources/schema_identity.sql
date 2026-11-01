@@ -337,16 +337,7 @@ JOIN M_ROLE r ON r.code = u.role_code
 WHERE c.code = 'PREMIER_NUTS'
 ON CONFLICT (username) DO NOTHING;
 
--- 7. Seed T_USER_ROLE (Bảng tương thích ngược)
-INSERT INTO T_USER_ROLE (user_id, role_id)
-SELECT u.id, u.role_id
-FROM T_USER u
-WHERE u.role_id IS NOT NULL
-AND NOT EXISTS (
-    SELECT 1 FROM T_USER_ROLE ur WHERE ur.user_id = u.id AND ur.role_id = u.role_id
-);
-
--- 8. Seed T_USER_PERMISSION (Kế thừa trực tiếp permissions từ template Role)
+-- 7. Seed T_USER_PERMISSION (Kế thừa trực tiếp permissions từ template Role)
 INSERT INTO T_USER_PERMISSION (user_id, permission_id)
 SELECT u.id, rp.permission_id
 FROM T_USER u

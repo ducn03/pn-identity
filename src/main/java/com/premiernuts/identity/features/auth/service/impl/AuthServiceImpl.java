@@ -2,6 +2,7 @@ package com.premiernuts.identity.features.auth.service.impl;
 
 import com.premiernuts.identity.core.constants.SecurityConstants;
 import com.premiernuts.identity.core.enums.ELoginStatus;
+import com.premiernuts.identity.core.enums.ERole;
 import com.premiernuts.identity.core.enums.EStatus;
 import com.premiernuts.identity.core.exception.ErrorCodes;
 import com.premiernuts.identity.core.exception.PnException;
@@ -17,24 +18,21 @@ import com.premiernuts.identity.features.auth.service.AuthService;
 import com.premiernuts.identity.features.auth.service.TokenStorageService;
 import com.premiernuts.identity.jpa.domain.auth.LoginLog;
 import com.premiernuts.identity.jpa.domain.auth.Token;
+import com.premiernuts.identity.jpa.domain.role.Permission;
 import com.premiernuts.identity.jpa.domain.role.Role;
 import com.premiernuts.identity.jpa.domain.user.User;
-import com.premiernuts.identity.jpa.domain.user.UserRole;
+import com.premiernuts.identity.jpa.domain.user.UserPermission;
 import com.premiernuts.identity.jpa.repository.auth.LoginLogRepository;
+import com.premiernuts.identity.jpa.repository.role.PermissionRepository;
 import com.premiernuts.identity.jpa.repository.role.RoleRepository;
+import com.premiernuts.identity.jpa.repository.user.UserPermissionRepository;
 import com.premiernuts.identity.jpa.repository.user.UserRepository;
-import com.premiernuts.identity.jpa.repository.user.UserRoleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import com.premiernuts.identity.jpa.domain.role.Permission;
-import com.premiernuts.identity.jpa.domain.user.UserPermission;
-import com.premiernuts.identity.jpa.repository.role.PermissionRepository;
-import com.premiernuts.identity.jpa.repository.user.UserPermissionRepository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -46,7 +44,6 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
-    private final UserRoleRepository userRoleRepository;
     private final UserPermissionRepository userPermissionRepository;
     private final PermissionRepository permissionRepository;
     private final TokenStorageService tokenStorageService;
@@ -76,15 +73,21 @@ public class AuthServiceImpl implements AuthService {
             throw new PnException(ErrorCodes.AUTH.ACCOUNT_LOCKED);
         }
 
-        // Lấy danh sách vai trò và quyền hạn
-        List<String> roles = getUserRoles(user);
-        List<String> permissions = getUserPermissions(user.getId(), roles);
+        // Lấy vai trò chức danh duy nhất và danh sách quyền hạn
+        String roleCode = getUserRoleCode(user);
+        List<String> roles;
+        if (roleCode != null) {
+            roles = List.of(roleCode);
+        } else {
+            roles = Collections.emptyList();
+        }
+        List<String> permissions = getUserPermissions(user.getId(), roleCode);
 
-        // Sinh cặp Token chứa cả roles và permissions
+        // Sinh cặp Token chứa role và permissions
         String accessToken = jwtHelper.generateAccessToken(user.getId(), user.getUsername(), user.getCompanyId(), roles, permissions);
         String refreshToken = jwtHelper.generateRefreshToken(user.getId(), user.getUsername());
 
-        // Lưu Refresh Token qua TokenStorageService (Database hiện tại, sẵn sàng cắm Redis)
+        // Lưu Refresh Token qua TokenStorageService
         Instant expiredAt = DateTimeHelper.plusDays(SecurityConstants.REFRESH_TOKEN_EXPIRATION_DAYS);
         tokenStorageService.saveRefreshToken(user.getId(), refreshToken, expiredAt);
 
@@ -130,8 +133,14 @@ public class AuthServiceImpl implements AuthService {
         }
 
         User user = userOpt.get();
-        List<String> roles = getUserRoles(user);
-        List<String> permissions = getUserPermissions(user.getId(), roles);
+        String roleCode = getUserRoleCode(user);
+        List<String> roles;
+        if (roleCode != null) {
+            roles = List.of(roleCode);
+        } else {
+            roles = Collections.emptyList();
+        }
+        List<String> permissions = getUserPermissions(user.getId(), roleCode);
         String newAccessToken = jwtHelper.generateAccessToken(user.getId(), user.getUsername(), user.getCompanyId(), roles, permissions);
 
         UserPrincipal principal = new UserPrincipal(user.getId(), user.getUsername(), user.getCompanyId(), roles, permissions);
@@ -163,42 +172,37 @@ public class AuthServiceImpl implements AuthService {
         }
 
         User user = userOpt.get();
-        List<String> roles = getUserRoles(user);
-        List<String> permissions = getUserPermissions(user.getId(), roles);
+        String roleCode = getUserRoleCode(user);
+        List<String> roles;
+        if (roleCode != null) {
+            roles = List.of(roleCode);
+        } else {
+            roles = Collections.emptyList();
+        }
+        List<String> permissions = getUserPermissions(user.getId(), roleCode);
 
         return new UserPrincipal(user.getId(), user.getUsername(), user.getCompanyId(), roles, permissions);
     }
 
-    private List<String> getUserRoles(User user) {
-        List<String> roleCodes = new ArrayList<>();
-        if (user.getRoleId() != null) {
-            Optional<Role> rOpt = roleRepository.findById(user.getRoleId());
-            if (rOpt.isPresent()) {
-                roleCodes.add(rOpt.get().getCode());
-            }
+    private String getUserRoleCode(User user) {
+        if (user.getRoleId() == null) {
+            return null;
         }
-
-        List<UserRole> userRoles = userRoleRepository.findAllByUserId(user.getId());
-        if (!userRoles.isEmpty()) {
-            List<Long> roleIds = userRoles.stream().map(UserRole::getRoleId).toList();
-            List<Role> roles = roleRepository.findAllByIdIn(roleIds);
-            for (Role r : roles) {
-                if (!roleCodes.contains(r.getCode())) {
-                    roleCodes.add(r.getCode());
-                }
-            }
+        Optional<Role> rOpt = roleRepository.findById(user.getRoleId());
+        if (rOpt.isPresent()) {
+            return rOpt.get().getCode();
         }
-        return roleCodes;
+        return null;
     }
 
-    private List<String> getUserPermissions(Long userId, List<String> roles) {
-        // Nếu là Quản trị viên -> có toàn bộ quyền
-        if (roles.contains("ROLE_ADMIN") || roles.contains("SUPER_ADMIN")) {
+    private List<String> getUserPermissions(Long userId, String roleCode) {
+        // Quản trị viên có toàn bộ quyền hệ thống
+        if (ERole.ROLE_ADMIN.name().equals(roleCode) || ERole.SUPER_ADMIN.name().equals(roleCode)) {
             List<Permission> allPerms = permissionRepository.findAll();
             return allPerms.stream().map(Permission::getCode).toList();
         }
 
-        // Lấy danh sách quyền gán trực tiếp từ T_USER_PERMISSION
+        // Lấy danh sách quyền hạn gán trực tiếp từ T_USER_PERMISSION
         List<UserPermission> userPerms = userPermissionRepository.findAllByUserId(userId);
         if (userPerms.isEmpty()) {
             return Collections.emptyList();

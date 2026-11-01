@@ -1,8 +1,10 @@
 package com.premiernuts.identity.core.security;
 
+import com.premiernuts.identity.core.enums.ERole;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.Collections;
 import java.util.List;
 
 @Getter
@@ -23,7 +25,7 @@ public class UserPrincipal {
         this.username = username;
         this.companyId = companyId;
         this.roles = roles;
-        this.permissions = java.util.Collections.emptyList();
+        this.permissions = Collections.emptyList();
     }
 
     public UserPrincipal(Long userId, String username, Long companyId, List<String> roles, List<String> permissions) {
@@ -42,7 +44,7 @@ public class UserPrincipal {
     }
 
     public boolean hasPermission(String permission) {
-        if (hasRole("ROLE_ADMIN") || hasRole("SUPER_ADMIN")) {
+        if (hasRole(ERole.ROLE_ADMIN.name()) || hasRole(ERole.SUPER_ADMIN.name())) {
             return true;
         }
         if (this.permissions == null || permission == null) {
