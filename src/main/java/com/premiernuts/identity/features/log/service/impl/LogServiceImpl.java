@@ -6,7 +6,7 @@ import com.premiernuts.identity.features.log.mapper.LogMapper;
 import com.premiernuts.identity.features.log.service.LogService;
 import com.premiernuts.identity.jpa.domain.auth.LoginLog;
 import com.premiernuts.identity.jpa.repository.auth.LoginLogRepository;
-import com.premiernuts.identity.jpa.repository.auth.LoginLogSpecification;
+import com.premiernuts.identity.features.log.spec.LoginLogSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;

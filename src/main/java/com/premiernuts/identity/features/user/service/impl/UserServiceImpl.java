@@ -32,7 +32,7 @@ import com.premiernuts.identity.jpa.repository.role.RolePermissionRepository;
 import com.premiernuts.identity.jpa.repository.role.RoleRepository;
 import com.premiernuts.identity.jpa.repository.user.UserPermissionRepository;
 import com.premiernuts.identity.jpa.repository.user.UserRepository;
-import com.premiernuts.identity.jpa.repository.user.UserSpecification;
+import com.premiernuts.identity.features.user.spec.UserSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;

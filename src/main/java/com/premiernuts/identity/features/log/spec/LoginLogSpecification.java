@@ -1,4 +1,4 @@
-package com.premiernuts.identity.jpa.repository.auth;
+package com.premiernuts.identity.features.log.spec;
 
 import com.premiernuts.identity.core.utils.StringHelper;
 import com.premiernuts.identity.features.log.dto.LogSearchDTO;

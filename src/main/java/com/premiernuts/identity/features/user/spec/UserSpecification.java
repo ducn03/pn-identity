@@ -1,4 +1,4 @@
-package com.premiernuts.identity.jpa.repository.user;
+package com.premiernuts.identity.features.user.spec;
 
 import com.premiernuts.identity.core.utils.StringHelper;
 import com.premiernuts.identity.features.user.dto.UserSearchDTO;
