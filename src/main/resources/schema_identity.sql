@@ -164,9 +164,9 @@ VALUES (
     'PREMIER_NUTS',
     'Công Ty Cổ Phần Nông Sản Premier Nuts',
     '3502320150',
-    'contact@premiernuts.vn',
+    'premiernutshcm@gmail.com',
     '0949382374',
-    'Khu Công Nghiệp Đồng Xoài, Tỉnh Bình Phước, Việt Nam',
+    '131/53/3 đường số 6, khu phố 1, p. Linh Xuân, Thủ Đức, TP HCM',
     'https://premiernuts.vn',
     'ACTIVE'
 ) ON CONFLICT (code) DO NOTHING;

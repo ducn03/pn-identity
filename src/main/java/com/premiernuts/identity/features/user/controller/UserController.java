@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -44,6 +45,13 @@ public class UserController {
 
     private final UserService userService;
     private final UserValidator userValidator;
+
+    @GetMapping(UserEndpoints.GENERATE_USERNAME)
+    @LogActivity(requireAuth = true)
+    public ResponseEntity<ResponseData<String>> generateUsername(@RequestParam String fullName) {
+        String generated = userService.generateUsername(fullName);
+        return ResponseUtils.toSuccess(generated);
+    }
 
     @GetMapping
     @LogActivity(requireAuth = true)

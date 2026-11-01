@@ -18,6 +18,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.premiernuts.identity.features.company.constants.CompanyEndpoints;
+import com.premiernuts.identity.features.company.dto.PermissionDTO;
+import com.premiernuts.identity.features.company.dto.UpdateCompanyDTO;
+import com.premiernuts.identity.features.company.dto.UpdateRolePermissionsDTO;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import java.util.List;
 
 @Slf4j
@@ -41,6 +48,19 @@ public class CompanyController {
         return ResponseUtils.toSuccess(company);
     }
 
+    @PutMapping(CompanyEndpoints.COMPANY)
+    @LogActivity(requireAuth = true)
+    public ResponseEntity<ResponseData<CompanyDTO>> updateCompany(@Valid @RequestBody UpdateCompanyDTO request) {
+        UserPrincipal principal = UserContext.get();
+        Long companyId = CommonConstants.DEFAULT_COMPANY_ID;
+        if (principal != null && principal.getCompanyId() != null) {
+            companyId = principal.getCompanyId();
+        }
+
+        CompanyDTO updated = companyService.updateCompany(companyId, request);
+        return ResponseUtils.toSuccess(updated);
+    }
+
     @GetMapping(CompanyEndpoints.DEPARTMENTS)
     @LogActivity(requireAuth = true)
     public ResponseEntity<ResponseData<List<DepartmentDTO>>> getDepartments() {
@@ -61,10 +81,20 @@ public class CompanyController {
         return ResponseUtils.toSuccess(list);
     }
 
+    @PutMapping(CompanyEndpoints.ROLES_PERMISSIONS)
+    @LogActivity(requireAuth = true)
+    public ResponseEntity<ResponseData<RoleDTO>> updateRolePermissions(
+            @PathVariable Long roleId,
+            @RequestBody UpdateRolePermissionsDTO request) {
+        RoleDTO updated = companyService.updateRolePermissions(roleId, request);
+        return ResponseUtils.toSuccess(updated);
+    }
+
     @GetMapping(CompanyEndpoints.PERMISSIONS)
     @LogActivity(requireAuth = true)
-    public ResponseEntity<ResponseData<List<com.premiernuts.identity.features.company.dto.PermissionDTO>>> getPermissions() {
-        List<com.premiernuts.identity.features.company.dto.PermissionDTO> list = companyService.getPermissions();
+    public ResponseEntity<ResponseData<List<PermissionDTO>>> getPermissions() {
+        List<PermissionDTO> list = companyService.getPermissions();
         return ResponseUtils.toSuccess(list);
     }
 }
+

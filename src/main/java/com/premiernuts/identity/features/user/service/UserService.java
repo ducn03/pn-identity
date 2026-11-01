@@ -24,4 +24,6 @@ public interface UserService {
     void changePassword(Long userId, ChangePasswordDTO request);
 
     void resetPassword(Long id, String newPassword);
+
+    String generateUsername(String fullName);
 }

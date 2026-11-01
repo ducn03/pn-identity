@@ -11,4 +11,5 @@ public final class UserEndpoints {
     public static final String ID = "/{id}";
     public static final String STATUS = "/{id}/status";
     public static final String CHANGE_PASSWORD = "/change-password";
+    public static final String GENERATE_USERNAME = "/generate-username";
 }

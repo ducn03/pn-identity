@@ -1,10 +1,17 @@
 package com.premiernuts.identity.features.company.service.impl;
 
+import com.premiernuts.identity.core.enums.ERole;
 import com.premiernuts.identity.core.exception.ErrorCodes;
 import com.premiernuts.identity.core.exception.PnException;
+import com.premiernuts.identity.core.security.UserContext;
+import com.premiernuts.identity.core.security.UserPrincipal;
+import com.premiernuts.identity.core.utils.StringHelper;
 import com.premiernuts.identity.features.company.dto.CompanyDTO;
 import com.premiernuts.identity.features.company.dto.DepartmentDTO;
+import com.premiernuts.identity.features.company.dto.PermissionDTO;
 import com.premiernuts.identity.features.company.dto.RoleDTO;
+import com.premiernuts.identity.features.company.dto.UpdateCompanyDTO;
+import com.premiernuts.identity.features.company.dto.UpdateRolePermissionsDTO;
 import com.premiernuts.identity.features.company.service.CompanyService;
 import com.premiernuts.identity.jpa.domain.company.Company;
 import com.premiernuts.identity.jpa.domain.company.Department;
@@ -58,8 +65,46 @@ public class CompanyServiceImpl implements CompanyService {
         dto.setAddress(company.getAddress());
         dto.setPhone(company.getPhone());
         dto.setEmail(company.getEmail());
+        dto.setWebsite(company.getWebsite());
         dto.setStatus(company.getStatus());
         return dto;
+    }
+
+    @Override
+    @Transactional
+    public CompanyDTO updateCompany(Long id, UpdateCompanyDTO request) {
+        UserPrincipal principal = UserContext.get();
+        if (principal == null || (!principal.hasRole(ERole.ROLE_ADMIN.name()) && !principal.hasRole(ERole.SUPER_ADMIN.name()))) {
+            throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
+        }
+
+        Optional<Company> companyOpt = companyRepository.findById(id);
+        if (companyOpt.isEmpty()) {
+            throw new PnException(ErrorCodes.COMMON.NOT_FOUND);
+        }
+        Company company = companyOpt.get();
+
+        if (StringHelper.isNotBlank(request.getName())) {
+            company.setName(StringHelper.trim(request.getName()));
+        }
+        if (request.getTaxCode() != null) {
+            company.setTaxCode(StringHelper.trim(request.getTaxCode()));
+        }
+        if (request.getEmail() != null) {
+            company.setEmail(StringHelper.trim(request.getEmail()));
+        }
+        if (request.getPhone() != null) {
+            company.setPhone(StringHelper.trim(request.getPhone()));
+        }
+        if (request.getAddress() != null) {
+            company.setAddress(StringHelper.trim(request.getAddress()));
+        }
+        if (request.getWebsite() != null) {
+            company.setWebsite(StringHelper.trim(request.getWebsite()));
+        }
+
+        company = companyRepository.save(company);
+        return getCompanyById(company.getId());
     }
 
     @Override
@@ -149,4 +194,49 @@ public class CompanyServiceImpl implements CompanyService {
         }
         return dtos;
     }
+
+    @Override
+    @Transactional
+    public RoleDTO updateRolePermissions(Long roleId, UpdateRolePermissionsDTO request) {
+        UserPrincipal principal = UserContext.get();
+        if (principal == null || (!principal.hasRole(ERole.ROLE_ADMIN.name()) && !principal.hasRole(ERole.SUPER_ADMIN.name()))) {
+            throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
+        }
+
+        Optional<Role> roleOpt = roleRepository.findById(roleId);
+        if (roleOpt.isEmpty()) {
+            throw new PnException(ErrorCodes.COMMON.NOT_FOUND);
+        }
+        Role role = roleOpt.get();
+
+        // Xóa các liên kết quyền hạn cũ của Role template này
+        rolePermissionRepository.deleteAllByRoleId(roleId);
+
+        // Lưu danh sách quyền hạn mới nếu có
+        List<Long> pIds = new ArrayList<>();
+        List<String> pCodes = new ArrayList<>();
+        if (request.getPermissionIds() != null && !request.getPermissionIds().isEmpty()) {
+            List<Permission> perms = permissionRepository.findAllById(request.getPermissionIds());
+            for (Permission p : perms) {
+                RolePermission rp = new RolePermission();
+                rp.setRoleId(roleId);
+                rp.setPermissionId(p.getId());
+                rolePermissionRepository.save(rp);
+                pIds.add(p.getId());
+                pCodes.add(p.getCode());
+            }
+        }
+
+        RoleDTO dto = new RoleDTO();
+        dto.setId(role.getId());
+        dto.setCode(role.getCode());
+        dto.setName(role.getName());
+        dto.setDescription(role.getDescription());
+        dto.setStatus(role.getStatus());
+        dto.setPermissionIds(pIds);
+        dto.setPermissionCodes(pCodes);
+
+        return dto;
+    }
 }
+

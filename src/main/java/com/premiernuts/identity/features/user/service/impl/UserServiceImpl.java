@@ -8,6 +8,7 @@ import com.premiernuts.identity.core.security.UserContext;
 import com.premiernuts.identity.core.security.UserPrincipal;
 import com.premiernuts.identity.core.utils.PasswordHelper;
 import com.premiernuts.identity.core.utils.StringHelper;
+import com.premiernuts.identity.core.utils.UsernameHelper;
 import com.premiernuts.identity.features.auth.service.TokenStorageService;
 import com.premiernuts.identity.features.user.dto.ChangePasswordDTO;
 import com.premiernuts.identity.features.user.dto.CreateUserDTO;
@@ -216,9 +217,14 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserDTO createUser(CreateUserDTO request, Long defaultCompanyId) {
-        String username = StringHelper.toLowerCase(request.getUsername());
-        if (userRepository.existsByUsername(username)) {
-            throw new PnException(ErrorCodes.USER.USERNAME_ALREADY_EXISTS);
+        String username;
+        if (StringHelper.isNotBlank(request.getUsername())) {
+            username = StringHelper.toLowerCase(request.getUsername());
+            if (userRepository.existsByUsername(username)) {
+                throw new PnException(ErrorCodes.USER.USERNAME_ALREADY_EXISTS);
+            }
+        } else {
+            username = UsernameHelper.generateUniqueUsername(request.getFullName(), userRepository);
         }
 
         if (StringHelper.isNotBlank(request.getEmail())) {
@@ -237,6 +243,7 @@ public class UserServiceImpl implements UserService {
         validateAdminRoleAssignment(selectedRoleId);
 
         User user = userMapper.toEntity(request, defaultCompanyId);
+        user.setUsername(username);
         user.setRoleId(selectedRoleId);
         user = userRepository.save(user);
 
@@ -271,6 +278,21 @@ public class UserServiceImpl implements UserService {
             throw new PnException(ErrorCodes.USER.USER_NOT_FOUND);
         }
         User user = userOpt.get();
+
+        // Chỉ cho phép Admin sửa username
+        if (StringHelper.isNotBlank(request.getUsername())) {
+            String newUsername = StringHelper.toLowerCase(request.getUsername());
+            if (!newUsername.equalsIgnoreCase(user.getUsername())) {
+                UserPrincipal principal = UserContext.get();
+                if (principal == null || (!principal.hasRole(ERole.ROLE_ADMIN.name()) && !principal.hasRole(ERole.SUPER_ADMIN.name()))) {
+                    throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
+                }
+                if (userRepository.existsByUsername(newUsername)) {
+                    throw new PnException(ErrorCodes.USER.USERNAME_ALREADY_EXISTS);
+                }
+                user.setUsername(newUsername);
+            }
+        }
 
         if (StringHelper.isNotBlank(request.getEmail())) {
             String email = StringHelper.toLowerCase(request.getEmail());
@@ -385,5 +407,11 @@ public class UserServiceImpl implements UserService {
         tokenStorageService.revokeAllUserTokens(user.getId());
         log.info("Admin reset password for user: {}", user.getUsername());
     }
+
+    @Override
+    public String generateUsername(String fullName) {
+        return UsernameHelper.generateUniqueUsername(fullName, userRepository);
+    }
 }
+
 

@@ -27,9 +27,7 @@ public class UserValidator {
 
         List<String> errors = new ArrayList<>();
 
-        if (StringHelper.isBlank(request.getUsername())) {
-            errors.add(MessageHelper.getMessage(ErrorCodes.VALIDATION.USERNAME_REQUIRED));
-        } else {
+        if (StringHelper.isNotBlank(request.getUsername())) {
             String trimmedUsername = StringHelper.trim(request.getUsername());
             if (trimmedUsername.length() < 3 || trimmedUsername.length() > 50) {
                 errors.add(MessageHelper.getMessage(ErrorCodes.VALIDATION.USERNAME_LENGTH));
@@ -46,6 +44,11 @@ public class UserValidator {
 
         if (StringHelper.isBlank(request.getFullName())) {
             errors.add(MessageHelper.getMessage(ErrorCodes.VALIDATION.FULL_NAME_REQUIRED));
+        } else {
+            String[] words = request.getFullName().trim().split("\\s+");
+            if (words.length < 2) {
+                errors.add(MessageHelper.getMessage(ErrorCodes.VALIDATION.FULL_NAME_MIN_WORDS));
+            }
         }
 
         if (StringHelper.isNotBlank(request.getEmail())) {

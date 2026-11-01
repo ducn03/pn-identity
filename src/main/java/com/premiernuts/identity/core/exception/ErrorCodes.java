@@ -30,6 +30,7 @@ public interface ErrorCodes {
         String EMAIL_INVALID = "40002007";
         String REFRESH_TOKEN_REQUIRED = "40002008";
         String STATUS_INVALID = "40002009";
+        String FULL_NAME_MIN_WORDS = "40002010";
     }
 
     interface AUTH {
