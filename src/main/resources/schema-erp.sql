@@ -6,7 +6,7 @@
 --   1. Phân cấp doanh nghiệp: Đi từ Công ty (M_COMPANY) -> Phòng ban (M_DEPARTMENT) -> Nhân viên (T_USER)
 --   2. Đặt tên VIẾT HOA:
 --        M_ : Bảng Master (danh mục nền tảng: Company, Department, Role, Permission, Bank)
---        T_ : Bảng Transaction (nghiệp vụ: User, Token, LoginLog, Finance, Contract)
+--        T_ : Bảng Transaction (nghiệp vụ: User, Token, LoginLog, Finance, Contract, Candidate)
 --   3. Chuẩn hóa audit: Mọi bảng (trừ bảng trung gian) đều có status, created_at, updated_at
 --   4. ID tự sinh hoàn toàn (BIGSERIAL) - KHÔNG chèn cứng ID thủ công
 --   5. Khóa ngoại logic ở mức ứng dụng (KHÔNG tạo ràng buộc FOREIGN KEY ở DB)
@@ -203,6 +203,34 @@ CREATE TABLE IF NOT EXISTS T_USER_CONTRACT (
     note VARCHAR(255),                           -- Ghi chú bổ sung
     attachment_url VARCHAR(255),                 -- File đính kèm / scan hợp đồng
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, EXPIRED, TERMINATED
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ------------------------------------------------------------------------------
+-- 13. BẢNG TRANSACTION: ỨNG VIÊN & TUYỂN DỤNG NHÂN SỰ (ATS / CANDIDATES)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS T_CANDIDATE (
+    id BIGSERIAL PRIMARY KEY,
+    company_id BIGINT NOT NULL,                  -- Khóa ngoại logic tới M_COMPANY.id
+    department_id BIGINT,                        -- Phòng ban ứng tuyển (KHO, SANXUAT, KETOAN...)
+    role_id BIGINT,                              -- Vị trí/chức danh ứng tuyển (M_ROLE.id)
+    full_name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    email VARCHAR(100),
+    dob DATE,
+    gender VARCHAR(10),                          -- MALE, FEMALE, OTHER
+    citizen_id VARCHAR(20),                      -- Số CCCD nếu có sẵn
+    cv_url VARCHAR(255),                         -- Link file PDF / Ảnh chụp CV
+    source VARCHAR(50) DEFAULT 'DIRECT',         -- Nguồn: TOPCV, FACEBOOK, REFERRAL, TRUCTIEP
+    interview_date TIMESTAMP WITH TIME ZONE,     -- Lịch hẹn phỏng vấn
+    interviewer_id BIGINT,                       -- Người phỏng vấn (T_USER.id)
+    interview_note TEXT,                         -- Đánh giá chuyên môn, kinh nghiệm, thái độ
+    interview_score INT,                         -- Điểm đánh giá (1 - 10)
+    expected_salary NUMERIC(15, 2),              -- Mức lương mong muốn
+    stage VARCHAR(30) NOT NULL DEFAULT 'APPLIED', -- APPLIED, SCREENING, INTERVIEWING, OFFERED, PASSED, REJECTED, WITHDRAWN
+    converted_user_id BIGINT,                    -- Ghi nhận user_id khi đã trúng tuyển thành nhân viên
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, INACTIVE
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
