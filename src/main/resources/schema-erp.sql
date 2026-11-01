@@ -323,7 +323,11 @@ VALUES
 
     -- Phân hệ Hồ Sơ Doanh Nghiệp (COMPANY)
     ('COMPANY_VIEW', 'Xem thông tin pháp nhân công ty', 'COMPANY', 'Tra cứu hồ sơ pháp lý và thông tin doanh nghiệp', 'ACTIVE'),
-    ('COMPANY_MANAGE', 'Quản lý thông tin doanh nghiệp', 'COMPANY', 'Cập nhật mã số thuế, địa chỉ, hotline doanh nghiệp', 'ACTIVE')
+    ('COMPANY_MANAGE', 'Quản lý thông tin doanh nghiệp', 'COMPANY', 'Cập nhật mã số thuế, địa chỉ, hotline doanh nghiệp', 'ACTIVE'),
+
+    -- Phân hệ Quản Trị Nhân Sự (HRM)
+    ('HRM_VIEW', 'Xem hồ sơ nhân sự & hợp đồng', 'HRM', 'Tra cứu hồ sơ tài chính, hợp đồng lao động và ứng viên', 'ACTIVE'),
+    ('HRM_MANAGE', 'Quản lý nhân sự & tuyển dụng', 'HRM', 'Cập nhật tài chính, hợp đồng lao động và chuyển đổi ứng viên', 'ACTIVE')
 ON CONFLICT (code) DO NOTHING;
 
 -- 5. Seed T_ROLE_PERMISSION (Role Template: Bản đồ quyền mẫu cho từng vai trò)
@@ -331,7 +335,7 @@ INSERT INTO T_ROLE_PERMISSION (role_id, permission_id)
 SELECT r.id, p.id
 FROM (
     VALUES
-        -- ROLE_ADMIN: Sở hữu toàn bộ các quyền trong hệ thống (20 quyền)
+        -- ROLE_ADMIN: Sở hữu toàn bộ các quyền trong hệ thống (22 quyền)
         ('ROLE_ADMIN', 'USER_VIEW'),
         ('ROLE_ADMIN', 'USER_MANAGE'),
         ('ROLE_ADMIN', 'ROLE_ASSIGN'),
@@ -352,6 +356,10 @@ FROM (
         ('ROLE_ADMIN', 'DASHBOARD_VIEW'),
         ('ROLE_ADMIN', 'LOG_VIEW'),
         ('ROLE_ADMIN', 'HEALTH_VIEW'),
+        ('ROLE_ADMIN', 'COMPANY_VIEW'),
+        ('ROLE_ADMIN', 'COMPANY_MANAGE'),
+        ('ROLE_ADMIN', 'HRM_VIEW'),
+        ('ROLE_ADMIN', 'HRM_MANAGE'),
 
         -- ROLE_DIRECTOR: Ban Giám Đốc (17 quyền, Không có DASHBOARD_VIEW, LOG_VIEW, HEALTH_VIEW)
         ('ROLE_DIRECTOR', 'USER_VIEW'),
