@@ -87,21 +87,20 @@ CREATE TABLE IF NOT EXISTS T_USER (
     email VARCHAR(100) UNIQUE,
     phone VARCHAR(20),
     avatar_url VARCHAR(255),
+    gender VARCHAR(10),                          -- MALE, FEMALE, OTHER
+    dob DATE,                                    -- Ngày sinh
+    citizen_id VARCHAR(20),                      -- Số CCCD/Hộ chiếu
+    citizen_issue_date DATE,                     -- Ngày cấp
+    citizen_issue_place VARCHAR(100),            -- Nơi cấp
+    hometown VARCHAR(150),                       -- Quê quán / Nguyên quán
+    permanent_address VARCHAR(255),              -- Địa chỉ thường trú
+    current_address VARCHAR(255),                -- Chỗ ở hiện tại / Tạm trú
+    emergency_contact_name VARCHAR(100),         -- Người liên hệ khẩn cấp
+    emergency_contact_phone VARCHAR(20),         -- SĐT khẩn cấp
     last_login_at TIMESTAMP WITH TIME ZONE,
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, INACTIVE, LOCKED
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
--- ------------------------------------------------------------------------------
--- 6. BẢNG TRUNG GIAN: GÁN VAI TRÒ CHO NHÂN VIÊN (Tương thích ngược)
--- ------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS T_USER_ROLE (
-    id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL,                     -- Khóa ngoại logic tới T_USER.id
-    role_id BIGINT NOT NULL,                     -- Khóa ngoại logic tới M_ROLE.id
-    assigned_by BIGINT,                          -- Khóa ngoại logic tới T_USER.id người thực hiện gán
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ------------------------------------------------------------------------------
@@ -152,6 +151,44 @@ CREATE TABLE IF NOT EXISTS T_LOGIN_LOG (
     user_agent VARCHAR(255),
     failure_reason VARCHAR(255),
     status VARCHAR(20) NOT NULL DEFAULT 'SUCCESS', -- SUCCESS, FAILED
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ------------------------------------------------------------------------------
+-- 11. BẢNG TRANSACTION: THÔNG TIN TÀI CHÍNH, THUẾ & TÀI KHOẢN NGÂN HÀNG
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS T_USER_FINANCE (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL UNIQUE,              -- Khóa ngoại logic 1:1 tới T_USER.id
+    bank_account_no VARCHAR(50),                 -- Số tài khoản nhận lương
+    bank_name VARCHAR(100),                      -- Tên ngân hàng (Vietcombank, MB, Techcombank...)
+    bank_branch VARCHAR(100),                    -- Chi nhánh mở tài khoản
+    tax_code VARCHAR(50),                        -- Mã số thuế cá nhân
+    dependents_count INT NOT NULL DEFAULT 0,     -- Số người phụ thuộc giảm trừ gia cảnh
+    social_insurance_no VARCHAR(50),             -- Số sổ BHXH
+    health_insurance_no VARCHAR(50),             -- Số thẻ BHYT
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, INACTIVE
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ------------------------------------------------------------------------------
+-- 12. BẢNG TRANSACTION: HỢP ĐỒNG LAO ĐỘNG NHÂN SỰ (LABOR CONTRACTS)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS T_USER_CONTRACT (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,                     -- Khóa ngoại logic 1:N tới T_USER.id
+    contract_number VARCHAR(50) NOT NULL UNIQUE, -- Số HĐLĐ (ví dụ HDLD-2026-0001)
+    contract_type VARCHAR(30) NOT NULL,          -- PROBATION, DEFINITE_1Y, DEFINITE_3Y, INDEFINITE, SEASONAL
+    start_date DATE NOT NULL,                    -- Ngày bắt đầu hiệu lực
+    end_date DATE,                               -- Ngày hết hạn (NULL nếu là không thời hạn)
+    signed_date DATE,                            -- Ngày ký hợp đồng
+    base_salary NUMERIC(15, 2) NOT NULL DEFAULT 0, -- Lương cơ bản đóng bảo hiểm
+    allowance NUMERIC(15, 2) NOT NULL DEFAULT 0,   -- Phụ cấp thỏa thuận cố định
+    note VARCHAR(255),                           -- Ghi chú bổ sung
+    attachment_url VARCHAR(255),                 -- File đính kèm / scan hợp đồng
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, EXPIRED, TERMINATED
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
