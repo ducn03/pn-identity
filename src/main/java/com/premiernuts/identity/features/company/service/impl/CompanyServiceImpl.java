@@ -199,7 +199,12 @@ public class CompanyServiceImpl implements CompanyService {
     @Transactional
     public RoleDTO updateRolePermissions(Long roleId, UpdateRolePermissionsDTO request) {
         UserPrincipal principal = UserContext.get();
-        if (principal == null || (!principal.hasRole(ERole.ROLE_ADMIN.name()) && !principal.hasRole(ERole.SUPER_ADMIN.name()))) {
+        if (principal == null) {
+            throw new PnException(ErrorCodes.UNAUTHORIZED.TOKEN_INVALID);
+        }
+        boolean isAdmin = principal.hasRole(ERole.ROLE_ADMIN.name()) || principal.hasRole(ERole.SUPER_ADMIN.name());
+        boolean hasRoleAssign = principal.hasPermission("ROLE_ASSIGN");
+        if (!isAdmin && !hasRoleAssign) {
             throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
         }
 
@@ -208,6 +213,23 @@ public class CompanyServiceImpl implements CompanyService {
             throw new PnException(ErrorCodes.COMMON.NOT_FOUND);
         }
         Role role = roleOpt.get();
+
+        // Không cho phép tài khoản không phải Admin chỉnh sửa khuôn mẫu của ROLE_ADMIN
+        if (!isAdmin && (ERole.ROLE_ADMIN.name().equalsIgnoreCase(role.getCode()) || ERole.SUPER_ADMIN.name().equalsIgnoreCase(role.getCode()))) {
+            throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
+        }
+
+        // Nếu không phải Admin, chặn không cho gán quyền hệ thống (DASHBOARD_VIEW, LOG_VIEW, HEALTH_VIEW)
+        if (!isAdmin && request.getPermissionIds() != null && !request.getPermissionIds().isEmpty()) {
+            List<Permission> permsToCheck = permissionRepository.findAllById(request.getPermissionIds());
+            for (Permission p : permsToCheck) {
+                if ("LOG_VIEW".equalsIgnoreCase(p.getCode())
+                        || "HEALTH_VIEW".equalsIgnoreCase(p.getCode())
+                        || "DASHBOARD_VIEW".equalsIgnoreCase(p.getCode())) {
+                    throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
+                }
+            }
+        }
 
         // Xóa các liên kết quyền hạn cũ của Role template này
         rolePermissionRepository.deleteAllByRoleId(roleId);
