@@ -1,10 +1,5 @@
 package com.premiernuts.identity.features.log.service.impl;
 
-import com.premiernuts.identity.core.enums.ERole;
-import com.premiernuts.identity.core.exception.ErrorCodes;
-import com.premiernuts.identity.core.exception.PnException;
-import com.premiernuts.identity.core.security.UserContext;
-import com.premiernuts.identity.core.security.UserPrincipal;
 import com.premiernuts.identity.core.utils.StringHelper;
 import com.premiernuts.identity.features.log.dto.LogSearchDTO;
 import com.premiernuts.identity.features.log.dto.LoginLogDTO;
@@ -33,11 +28,6 @@ public class LogServiceImpl implements LogService {
     @Override
     @Transactional(readOnly = true)
     public Page<LoginLogDTO> getLoginLogs(LogSearchDTO searchDTO, Pageable pageable) {
-        UserPrincipal principal = UserContext.get();
-        if (principal == null || (!principal.hasRole(ERole.ROLE_ADMIN.name()) && !principal.hasRole(ERole.SUPER_ADMIN.name()))) {
-            throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
-        }
-
         Specification<LoginLog> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
