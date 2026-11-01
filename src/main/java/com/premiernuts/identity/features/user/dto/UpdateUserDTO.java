@@ -14,5 +14,7 @@ public class UpdateUserDTO {
     private String phone;
     private Long departmentId;
     private String avatarUrl;
+    private Long roleId;
     private List<Long> roleIds;
+    private List<Long> permissionIds;
 }

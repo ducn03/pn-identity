@@ -60,4 +60,11 @@ public class CompanyController {
         List<RoleDTO> list = companyService.getRoles();
         return ResponseUtils.toSuccess(list);
     }
+
+    @GetMapping(CompanyEndpoints.PERMISSIONS)
+    @LogActivity(requireAuth = true)
+    public ResponseEntity<ResponseData<List<com.premiernuts.identity.features.company.dto.PermissionDTO>>> getPermissions() {
+        List<com.premiernuts.identity.features.company.dto.PermissionDTO> list = companyService.getPermissions();
+        return ResponseUtils.toSuccess(list);
+    }
 }

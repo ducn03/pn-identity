@@ -16,5 +16,7 @@ public class CreateUserDTO {
     private String phone;
     private Long departmentId;
     private Long companyId;
+    private Long roleId;
     private List<Long> roleIds;
+    private List<Long> permissionIds;
 }

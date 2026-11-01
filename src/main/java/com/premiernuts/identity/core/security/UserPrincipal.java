@@ -13,6 +13,7 @@ public class UserPrincipal {
     private String username;
     private Long companyId;
     private List<String> roles;
+    private List<String> permissions;
 
     public UserPrincipal() {
     }
@@ -22,6 +23,15 @@ public class UserPrincipal {
         this.username = username;
         this.companyId = companyId;
         this.roles = roles;
+        this.permissions = java.util.Collections.emptyList();
+    }
+
+    public UserPrincipal(Long userId, String username, Long companyId, List<String> roles, List<String> permissions) {
+        this.userId = userId;
+        this.username = username;
+        this.companyId = companyId;
+        this.roles = roles;
+        this.permissions = permissions;
     }
 
     public boolean hasRole(String role) {
@@ -29,5 +39,15 @@ public class UserPrincipal {
             return false;
         }
         return this.roles.contains(role);
+    }
+
+    public boolean hasPermission(String permission) {
+        if (hasRole("ROLE_ADMIN") || hasRole("SUPER_ADMIN")) {
+            return true;
+        }
+        if (this.permissions == null || permission == null) {
+            return false;
+        }
+        return this.permissions.contains(permission);
     }
 }

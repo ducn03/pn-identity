@@ -13,4 +13,6 @@ public interface CompanyService {
     List<DepartmentDTO> getDepartments(Long companyId);
 
     List<RoleDTO> getRoles();
+
+    List<com.premiernuts.identity.features.company.dto.PermissionDTO> getPermissions();
 }

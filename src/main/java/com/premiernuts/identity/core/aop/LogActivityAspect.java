@@ -87,6 +87,7 @@ public class LogActivityAspect {
             String username = jwtHelper.extractUsername(token);
             Long companyId = jwtHelper.extractCompanyId(token);
             List<String> roles = jwtHelper.extractRoles(token);
+            List<String> permissions = jwtHelper.extractPermissions(token);
 
             if (userId == null || username == null) {
                 throw new PnException(ErrorCodes.UNAUTHORIZED.TOKEN_INVALID);
@@ -108,7 +109,7 @@ public class LogActivityAspect {
                 }
             }
 
-            UserPrincipal principal = new UserPrincipal(userId, username, companyId, roles);
+            UserPrincipal principal = new UserPrincipal(userId, username, companyId, roles, permissions);
 
             UserContext.set(principal);
             request.setAttribute(SecurityConstants.REQ_ATTR_USER_PRINCIPAL, principal);

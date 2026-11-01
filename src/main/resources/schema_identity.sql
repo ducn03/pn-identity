@@ -45,12 +45,12 @@ CREATE TABLE IF NOT EXISTS M_DEPARTMENT (
 );
 
 -- ------------------------------------------------------------------------------
--- 3. BẢNG MASTER: VAI TRÒ HỆ THỐNG
+-- 3. BẢNG MASTER: VAI TRÒ HỆ THỐNG (ROLE TEMPLATES)
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS M_ROLE (
     id BIGSERIAL PRIMARY KEY,
     company_id BIGINT,                           -- Khóa ngoại logic tới M_COMPANY.id (NULL = Toàn hệ thống)
-    code VARCHAR(50) NOT NULL UNIQUE,            -- ROLE_ADMIN, ROLE_KHO, ROLE_KE_TOAN, ROLE_SAN_XUAT, ROLE_QC
+    code VARCHAR(50) NOT NULL UNIQUE,            -- ROLE_ADMIN, ROLE_DIRECTOR, ROLE_BRANCH_MANAGER, ROLE_KHO...
     name VARCHAR(100) NOT NULL,
     description VARCHAR(255),
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, INACTIVE
@@ -59,13 +59,13 @@ CREATE TABLE IF NOT EXISTS M_ROLE (
 );
 
 -- ------------------------------------------------------------------------------
--- 4. BẢNG MASTER: QUYỀN HẠN CHI TIẾT
+-- 4. BẢNG MASTER: QUYỀN HẠN CHI TIẾT (ATOMIC PERMISSIONS)
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS M_PERMISSION (
     id BIGSERIAL PRIMARY KEY,
-    code VARCHAR(100) NOT NULL UNIQUE,           -- INVENTORY_VIEW, INVENTORY_IMPORT, USER_MANAGE...
+    code VARCHAR(100) NOT NULL UNIQUE,           -- INVENTORY_VIEW, USER_MANAGE, DIRECTOR_APPROVE...
     name VARCHAR(100) NOT NULL,
-    module VARCHAR(50) NOT NULL,                 -- INVENTORY, IDENTITY, MANUFACTURING, ORDERS
+    module VARCHAR(50) NOT NULL,                 -- IDENTITY, INVENTORY, BRANCH, FINANCE, MANUFACTURING, QC, MANAGEMENT
     description VARCHAR(255),
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, INACTIVE
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS T_USER (
     id BIGSERIAL PRIMARY KEY,
     company_id BIGINT NOT NULL,                  -- Khóa ngoại logic tới M_COMPANY.id
     department_id BIGINT,                        -- Khóa ngoại logic tới M_DEPARTMENT.id
+    role_id BIGINT,                              -- Khóa ngoại logic tới M_ROLE.id (Template vai trò chính / Chức danh)
     username VARCHAR(50) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(100) NOT NULL,
@@ -92,7 +93,7 @@ CREATE TABLE IF NOT EXISTS T_USER (
 );
 
 -- ------------------------------------------------------------------------------
--- 6. BẢNG TRUNG GIAN: GÁN VAI TRÒ CHO NHÂN VIÊN (Chỉ cần created_at)
+-- 6. BẢNG TRUNG GIAN: GÁN VAI TRÒ CHO NHÂN VIÊN (Tương thích ngược)
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS T_USER_ROLE (
     id BIGSERIAL PRIMARY KEY,
@@ -103,17 +104,28 @@ CREATE TABLE IF NOT EXISTS T_USER_ROLE (
 );
 
 -- ------------------------------------------------------------------------------
--- 7. BẢNG TRUNG GIAN: GÁN QUYỀN CHO VAI TRÒ (Chỉ cần created_at)
+-- 7. BẢNG KHUÔN MẪU: QUYỀN MẶC ĐỊNH THEO VAI TRÒ (ROLE PERMISSION TEMPLATE)
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS T_ROLE_PERMISSION (
     id BIGSERIAL PRIMARY KEY,
-    role_id BIGINT NOT NULL,                     -- Khóa ngoại logic tới M_ROLE.id
+    role_id BIGINT NOT NULL,                     -- Khóa ngoại logic tới M_ROLE.id (Role template)
     permission_id BIGINT NOT NULL,               -- Khóa ngoại logic tới M_PERMISSION.id
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ------------------------------------------------------------------------------
--- 8. BẢNG TRANSACTION: QUẢN LÝ TOKEN & PHIÊN ĐĂNG NHẬP (Thay thế Redis)
+-- 8. BẢNG TRANSACTION: QUYỀN HẠN TRỰC TIẾP CỦA NGƯỜI DÙNG (USER DIRECT PERMISSIONS)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS T_USER_PERMISSION (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,                     -- Khóa ngoại logic tới T_USER.id
+    permission_id BIGINT NOT NULL,               -- Khóa ngoại logic tới M_PERMISSION.id
+    assigned_by BIGINT,                          -- Khóa ngoại logic tới T_USER.id người gán
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ------------------------------------------------------------------------------
+-- 9. BẢNG TRANSACTION: QUẢN LÝ TOKEN & PHIÊN ĐĂNG NHẬP (Thay thế Redis)
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS T_TOKEN (
     id BIGSERIAL PRIMARY KEY,
@@ -127,7 +139,7 @@ CREATE TABLE IF NOT EXISTS T_TOKEN (
 );
 
 -- ------------------------------------------------------------------------------
--- 9. BẢNG TRANSACTION: NHẬT KÝ ĐĂNG NHẬP HỆ THỐNG
+-- 10. BẢNG TRANSACTION: NHẬT KÝ ĐĂNG NHẬP HỆ THỐNG
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS T_LOGIN_LOG (
     id BIGSERIAL PRIMARY KEY,
@@ -176,33 +188,134 @@ AND NOT EXISTS (
     SELECT 1 FROM M_DEPARTMENT d WHERE d.company_id = c.id AND d.code = dept.code
 );
 
--- 3. Seed M_ROLE (ID tự sinh)
+-- 3. Seed M_ROLE (Template vai trò)
 INSERT INTO M_ROLE (code, name, description, status)
 VALUES 
-    ('ROLE_ADMIN', 'Quản Trị Viên Hệ Thống', 'Toàn quyền cấu hình và phân quyền Premier Nuts ERP', 'ACTIVE'),
-    ('ROLE_KHO', 'Thủ Kho', 'Quản lý xuất, nhập, tồn kho hạt và vật tư', 'ACTIVE'),
-    ('ROLE_KE_TOAN', 'Kế Toán Doanh Nghiệp', 'Xem sổ sách, duyệt thanh toán và đối soát đơn hàng', 'ACTIVE'),
-    ('ROLE_SAN_XUAT', 'Tổ Trưởng Sản Xuất', 'Tạo lệnh chế biến, rang sấy, đóng gói', 'ACTIVE'),
-    ('ROLE_QC', 'Kỹ Thuật Viên Kiểm Định', 'Kiểm định độ ẩm, phân hạng A/B/C các lô hạt', 'ACTIVE')
+    ('ROLE_ADMIN', 'Quản Trị Viên Hệ Thống', 'Toàn quyền cấu hình, nhân sự và phân quyền Premier Nuts ERP', 'ACTIVE'),
+    ('ROLE_DIRECTOR', 'Ban Giám Đốc', 'Phê duyệt hạn mức, dự toán, xem toàn bộ báo cáo và điều hành', 'ACTIVE'),
+    ('ROLE_BRANCH_MANAGER', 'Quản Lý Chi Nhánh', 'Quản lý vận hành chi nhánh, kho chi nhánh và điều phối nhân sự', 'ACTIVE'),
+    ('ROLE_KHO', 'Thủ Kho', 'Quản lý xuất, nhập, tồn kho hạt và vật tư sản xuất', 'ACTIVE'),
+    ('ROLE_KE_TOAN', 'Kế Toán Doanh Nghiệp', 'Xem sổ sách, duyệt thanh toán, công nợ và đối soát hóa đơn', 'ACTIVE'),
+    ('ROLE_SAN_XUAT', 'Tổ Trưởng Sản Xuất', 'Tạo lệnh chế biến, quản lý máy rang sấy, đóng gói', 'ACTIVE'),
+    ('ROLE_QC', 'Kỹ Thuật Viên Kiểm Định', 'Kiểm định độ ẩm, tỷ lệ tấm, phân hạng A/B/C các lô hạt', 'ACTIVE')
 ON CONFLICT (code) DO NOTHING;
 
--- 4. Seed M_PERMISSION (ID tự sinh)
+-- 4. Seed M_PERMISSION (Quyền hạn chi tiết theo Module)
 INSERT INTO M_PERMISSION (code, name, module, description, status)
 VALUES
-    ('USER_VIEW', 'Xem danh sách nhân sự', 'IDENTITY', 'Quyền xem danh sách user', 'ACTIVE'),
-    ('USER_MANAGE', 'Thêm/sửa/khóa nhân sự', 'IDENTITY', 'Quyền quản trị tài khoản', 'ACTIVE'),
-    ('ROLE_ASSIGN', 'Phân quyền người dùng', 'IDENTITY', 'Gán role cho tài khoản', 'ACTIVE'),
-    ('INVENTORY_VIEW', 'Xem tồn kho hạt', 'INVENTORY', 'Tra cứu số lượng tồn kho', 'ACTIVE'),
-    ('INVENTORY_IMPORT', 'Nhập kho hạt mới', 'INVENTORY', 'Tạo phiếu nhập lô hạt', 'ACTIVE'),
-    ('INVENTORY_EXPORT', 'Xuất kho chế biến', 'INVENTORY', 'Tạo phiếu xuất kho', 'ACTIVE')
+    -- Phân hệ Tài Khoản & Nhân Sự (IDENTITY)
+    ('USER_VIEW', 'Xem danh sách nhân sự', 'IDENTITY', 'Quyền tra cứu danh sách nhân sự trong công ty', 'ACTIVE'),
+    ('USER_MANAGE', 'Thêm/sửa/khóa nhân sự', 'IDENTITY', 'Quyền quản trị tài khoản nhân viên', 'ACTIVE'),
+    ('ROLE_ASSIGN', 'Phân quyền người dùng', 'IDENTITY', 'Quyền chọn vai trò và tùy biến permission', 'ACTIVE'),
+
+    -- Phân hệ Kho Vận & Vật Tư (INVENTORY)
+    ('INVENTORY_VIEW', 'Xem tồn kho hạt & vật tư', 'INVENTORY', 'Tra cứu số lượng tồn kho hạt nông sản và bao bì', 'ACTIVE'),
+    ('INVENTORY_IMPORT', 'Nhập kho hạt mới', 'INVENTORY', 'Tạo phiếu nhập lô hạt nguyên liệu', 'ACTIVE'),
+    ('INVENTORY_EXPORT', 'Xuất kho chế biến', 'INVENTORY', 'Tạo phiếu xuất kho phục vụ sản xuất và giao hàng', 'ACTIVE'),
+    ('INVENTORY_AUDIT', 'Kiểm kê kho', 'INVENTORY', 'Đối soát và kiểm kê số lượng thực tế trong kho', 'ACTIVE'),
+
+    -- Phân hệ Quản Lý Chi Nhánh (BRANCH)
+    ('BRANCH_MANAGE', 'Quản lý chi nhánh', 'BRANCH', 'Điều hành hoạt động và phân bổ nguồn lực chi nhánh', 'ACTIVE'),
+    ('BRANCH_INVENTORY_VIEW', 'Xem kho chi nhánh', 'BRANCH', 'Tra cứu số lượng tồn kho tại các điểm kho chi nhánh', 'ACTIVE'),
+
+    -- Phân hệ Tài Chính Kế Toán (FINANCE)
+    ('FINANCE_VIEW', 'Xem báo cáo tài chính', 'FINANCE', 'Tra cứu dòng tiền, công nợ và sổ quỹ doanh nghiệp', 'ACTIVE'),
+    ('FINANCE_MANAGE', 'Quản lý thu chi & công nợ', 'FINANCE', 'Tạo phiếu thu chi, duyệt đối soát hóa đơn', 'ACTIVE'),
+
+    -- Phân hệ Phân Xưởng Sản Xuất (MANUFACTURING)
+    ('MANUFACTURING_VIEW', 'Xem kế hoạch sản xuất', 'MANUFACTURING', 'Tra cứu ca sản xuất, định mức rang sấy hạt', 'ACTIVE'),
+    ('MANUFACTURING_EXECUTE', 'Thực thi lệnh chế biến', 'MANUFACTURING', 'Vận hành chuyền chế biến, rang sấy và đóng gói', 'ACTIVE'),
+
+    -- Phân hệ Kiểm Định Chất Lượng (QC)
+    ('QC_VIEW', 'Xem hồ sơ kiểm định', 'QC', 'Tra cứu kết quả kiểm định chất lượng lô hạt', 'ACTIVE'),
+    ('QC_INSPECT', 'Đánh giá & phân hạng hạt', 'QC', 'Thực hiện kiểm định độ ẩm, sâu mọt và cấp chứng chỉ', 'ACTIVE'),
+
+    -- Phân hệ Ban Giám Đốc & Quản Trị (MANAGEMENT)
+    ('DIRECTOR_APPROVE', 'Phê duyệt cấp Giám Đốc', 'MANAGEMENT', 'Phê duyệt các hợp đồng, hạn mức và đơn hàng trọng điểm', 'ACTIVE'),
+    ('REPORT_VIEW', 'Xem báo cáo thống kê toàn diện', 'MANAGEMENT', 'Xem dashboard số liệu tổng hợp doanh thu, tồn kho toàn công ty', 'ACTIVE')
 ON CONFLICT (code) DO NOTHING;
 
--- 5. Seed T_USER (ID tự sinh, password mặc định: admin123 - Mã hóa BCrypt)
--- Hash: $2a$10$/sIGVKgW6Yjt4Wvz66LoxuRnaqv36NqCO1YQhmIXrJWJz1n72x.Cm
-INSERT INTO T_USER (company_id, department_id, username, password_hash, full_name, email, phone, status)
+-- 5. Seed T_ROLE_PERMISSION (Role Template: Bản đồ quyền mẫu cho từng vai trò)
+INSERT INTO T_ROLE_PERMISSION (role_id, permission_id)
+SELECT r.id, p.id
+FROM (
+    VALUES
+        -- ROLE_ADMIN: Sở hữu toàn bộ các quyền trong hệ thống
+        ('ROLE_ADMIN', 'USER_VIEW'),
+        ('ROLE_ADMIN', 'USER_MANAGE'),
+        ('ROLE_ADMIN', 'ROLE_ASSIGN'),
+        ('ROLE_ADMIN', 'INVENTORY_VIEW'),
+        ('ROLE_ADMIN', 'INVENTORY_IMPORT'),
+        ('ROLE_ADMIN', 'INVENTORY_EXPORT'),
+        ('ROLE_ADMIN', 'INVENTORY_AUDIT'),
+        ('ROLE_ADMIN', 'BRANCH_MANAGE'),
+        ('ROLE_ADMIN', 'BRANCH_INVENTORY_VIEW'),
+        ('ROLE_ADMIN', 'FINANCE_VIEW'),
+        ('ROLE_ADMIN', 'FINANCE_MANAGE'),
+        ('ROLE_ADMIN', 'MANUFACTURING_VIEW'),
+        ('ROLE_ADMIN', 'MANUFACTURING_EXECUTE'),
+        ('ROLE_ADMIN', 'QC_VIEW'),
+        ('ROLE_ADMIN', 'QC_INSPECT'),
+        ('ROLE_ADMIN', 'DIRECTOR_APPROVE'),
+        ('ROLE_ADMIN', 'REPORT_VIEW'),
+
+        -- ROLE_DIRECTOR: Ban Giám Đốc
+        ('ROLE_DIRECTOR', 'DIRECTOR_APPROVE'),
+        ('ROLE_DIRECTOR', 'REPORT_VIEW'),
+        ('ROLE_DIRECTOR', 'FINANCE_VIEW'),
+        ('ROLE_DIRECTOR', 'FINANCE_MANAGE'),
+        ('ROLE_DIRECTOR', 'INVENTORY_VIEW'),
+        ('ROLE_DIRECTOR', 'BRANCH_INVENTORY_VIEW'),
+        ('ROLE_DIRECTOR', 'BRANCH_MANAGE'),
+        ('ROLE_DIRECTOR', 'USER_VIEW'),
+        ('ROLE_DIRECTOR', 'MANUFACTURING_VIEW'),
+        ('ROLE_DIRECTOR', 'QC_VIEW'),
+
+        -- ROLE_BRANCH_MANAGER: Quản Lý Chi Nhánh
+        ('ROLE_BRANCH_MANAGER', 'BRANCH_MANAGE'),
+        ('ROLE_BRANCH_MANAGER', 'BRANCH_INVENTORY_VIEW'),
+        ('ROLE_BRANCH_MANAGER', 'INVENTORY_VIEW'),
+        ('ROLE_BRANCH_MANAGER', 'INVENTORY_IMPORT'),
+        ('ROLE_BRANCH_MANAGER', 'INVENTORY_EXPORT'),
+        ('ROLE_BRANCH_MANAGER', 'REPORT_VIEW'),
+        ('ROLE_BRANCH_MANAGER', 'USER_VIEW'),
+
+        -- ROLE_KE_TOAN: Kế Toán Doanh Nghiệp
+        ('ROLE_KE_TOAN', 'FINANCE_VIEW'),
+        ('ROLE_KE_TOAN', 'FINANCE_MANAGE'),
+        ('ROLE_KE_TOAN', 'INVENTORY_VIEW'),
+        ('ROLE_KE_TOAN', 'REPORT_VIEW'),
+        ('ROLE_KE_TOAN', 'USER_VIEW'),
+
+        -- ROLE_KHO: Thủ Kho
+        ('ROLE_KHO', 'INVENTORY_VIEW'),
+        ('ROLE_KHO', 'INVENTORY_IMPORT'),
+        ('ROLE_KHO', 'INVENTORY_EXPORT'),
+        ('ROLE_KHO', 'INVENTORY_AUDIT'),
+
+        -- ROLE_SAN_XUAT: Tổ Trưởng Sản Xuất
+        ('ROLE_SAN_XUAT', 'MANUFACTURING_VIEW'),
+        ('ROLE_SAN_XUAT', 'MANUFACTURING_EXECUTE'),
+        ('ROLE_SAN_XUAT', 'INVENTORY_VIEW'),
+
+        -- ROLE_QC: Kỹ Thuật Viên Kiểm Định
+        ('ROLE_QC', 'QC_VIEW'),
+        ('ROLE_QC', 'QC_INSPECT'),
+        ('ROLE_QC', 'INVENTORY_VIEW')
+) AS mapping(role_code, perm_code)
+JOIN M_ROLE r ON r.code = mapping.role_code
+JOIN M_PERMISSION p ON p.code = mapping.perm_code
+WHERE NOT EXISTS (
+    SELECT 1 FROM T_ROLE_PERMISSION rp WHERE rp.role_id = r.id AND rp.permission_id = p.id
+);
+
+-- 6. Seed T_USER (Tài khoản nhân sự với role_id gán trực tiếp làm template vai trò)
+-- Password mặc định: admin123 (BCrypt hash)
+INSERT INTO T_USER (company_id, department_id, role_id, username, password_hash, full_name, email, phone, status)
 SELECT 
     c.id,
     d.id,
+    r.id,
     u.username,
     '$2a$10$/sIGVKgW6Yjt4Wvz66LoxuRnaqv36NqCO1YQhmIXrJWJz1n72x.Cm',
     u.full_name,
@@ -212,27 +325,33 @@ SELECT
 FROM M_COMPANY c
 JOIN (
     VALUES 
-        ('admin', 'BGD', 'Nguyễn Văn Quản Trị', 'admin@premiernuts.vn', '0901234567'),
-        ('kho_truong', 'KHO', 'Trần Văn Kho', 'kho@premiernuts.vn', '0912345678'),
-        ('ketoan_truong', 'KETOAN', 'Lê Thị Thu', 'ketoan@premiernuts.vn', '0923456789'),
-        ('sanxuat_lead', 'SANXUAT', 'Phạm Minh Sản Xuất', 'sanxuat@premiernuts.vn', '0934567890')
-) AS u(username, dept_code, full_name, email, phone) ON true
+        ('admin', 'BGD', 'ROLE_ADMIN', 'Nguyễn Văn Quản Trị', 'admin@premiernuts.vn', '0901234567'),
+        ('director', 'BGD', 'ROLE_DIRECTOR', 'Đặng Thái Giám Đốc', 'director@premiernuts.vn', '0909999888'),
+        ('branch_lead', 'BGD', 'ROLE_BRANCH_MANAGER', 'Hoàng Văn Chi Nhánh', 'chinhanh@premiernuts.vn', '0908888777'),
+        ('kho_truong', 'KHO', 'ROLE_KHO', 'Trần Văn Kho', 'kho@premiernuts.vn', '0912345678'),
+        ('ketoan_truong', 'KETOAN', 'ROLE_KE_TOAN', 'Lê Thị Thu', 'ketoan@premiernuts.vn', '0923456789'),
+        ('sanxuat_lead', 'SANXUAT', 'ROLE_SAN_XUAT', 'Phạm Minh Sản Xuất', 'sanxuat@premiernuts.vn', '0934567890')
+) AS u(username, dept_code, role_code, full_name, email, phone) ON true
 JOIN M_DEPARTMENT d ON d.company_id = c.id AND d.code = u.dept_code
+JOIN M_ROLE r ON r.code = u.role_code
 WHERE c.code = 'PREMIER_NUTS'
 ON CONFLICT (username) DO NOTHING;
 
--- 6. Seed T_USER_ROLE (ID tự sinh, ghép logic giữa T_USER và M_ROLE theo code)
+-- 7. Seed T_USER_ROLE (Bảng tương thích ngược)
 INSERT INTO T_USER_ROLE (user_id, role_id)
-SELECT u.id, r.id
+SELECT u.id, u.role_id
 FROM T_USER u
-JOIN (
-    VALUES 
-        ('admin', 'ROLE_ADMIN'),
-        ('kho_truong', 'ROLE_KHO'),
-        ('ketoan_truong', 'ROLE_KE_TOAN'),
-        ('sanxuat_lead', 'ROLE_SAN_XUAT')
-) AS mapping(username, role_code) ON u.username = mapping.username
-JOIN M_ROLE r ON r.code = mapping.role_code
-WHERE NOT EXISTS (
-    SELECT 1 FROM T_USER_ROLE ur WHERE ur.user_id = u.id AND ur.role_id = r.id
+WHERE u.role_id IS NOT NULL
+AND NOT EXISTS (
+    SELECT 1 FROM T_USER_ROLE ur WHERE ur.user_id = u.id AND ur.role_id = u.role_id
 );
+
+-- 8. Seed T_USER_PERMISSION (Kế thừa trực tiếp permissions từ template Role)
+INSERT INTO T_USER_PERMISSION (user_id, permission_id)
+SELECT u.id, rp.permission_id
+FROM T_USER u
+JOIN T_ROLE_PERMISSION rp ON rp.role_id = u.role_id
+WHERE NOT EXISTS (
+    SELECT 1 FROM T_USER_PERMISSION up WHERE up.user_id = u.id AND up.permission_id = rp.permission_id
+);
+

@@ -12,4 +12,6 @@ public class RoleDTO {
     private String name;
     private String description;
     private String status;
+    private java.util.List<Long> permissionIds;
+    private java.util.List<String> permissionCodes;
 }

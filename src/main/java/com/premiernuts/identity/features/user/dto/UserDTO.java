@@ -23,6 +23,11 @@ public class UserDTO {
     private Instant lastLoginAt;
     private Instant createdAt;
     private Instant updatedAt;
+    private Long roleId;
+    private String roleCode;
+    private String roleName;
     private List<String> roles;
     private List<Long> roleIds;
+    private List<Long> permissionIds;
+    private List<String> permissions;
 }

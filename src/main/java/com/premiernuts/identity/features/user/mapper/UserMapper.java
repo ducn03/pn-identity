@@ -16,6 +16,20 @@ import java.util.List;
 public class UserMapper {
 
     public UserDTO toDTO(User user, String deptName, List<String> roleCodes, List<Long> roleIds) {
+        return toDTO(user, deptName, user != null ? user.getRoleId() : null, null, null, roleCodes, roleIds, null, null);
+    }
+
+    public UserDTO toDTO(
+            User user,
+            String deptName,
+            Long roleId,
+            String roleCode,
+            String roleName,
+            List<String> roleCodes,
+            List<Long> roleIds,
+            List<Long> permissionIds,
+            List<String> permissionCodes
+    ) {
         if (user == null) {
             return null;
         }
@@ -34,8 +48,13 @@ public class UserMapper {
         dto.setLastLoginAt(user.getLastLoginAt());
         dto.setCreatedAt(user.getCreatedAt());
         dto.setUpdatedAt(user.getUpdatedAt());
+        dto.setRoleId(roleId);
+        dto.setRoleCode(roleCode);
+        dto.setRoleName(roleName);
         dto.setRoles(roleCodes);
         dto.setRoleIds(roleIds);
+        dto.setPermissionIds(permissionIds);
+        dto.setPermissions(permissionCodes);
         return dto;
     }
 
@@ -55,6 +74,13 @@ public class UserMapper {
         User user = new User();
         user.setCompanyId(companyId);
         user.setDepartmentId(request.getDepartmentId());
+
+        Long roleId = request.getRoleId();
+        if (roleId == null && request.getRoleIds() != null && !request.getRoleIds().isEmpty()) {
+            roleId = request.getRoleIds().get(0);
+        }
+        user.setRoleId(roleId);
+
         user.setUsername(StringHelper.toLowerCase(request.getUsername()));
         user.setPasswordHash(PasswordHelper.hash(request.getPassword()));
         user.setFullName(StringHelper.trim(request.getFullName()));
@@ -78,6 +104,13 @@ public class UserMapper {
             user.setPhone(StringHelper.trim(request.getPhone()));
         }
         user.setDepartmentId(request.getDepartmentId());
+
+        if (request.getRoleId() != null) {
+            user.setRoleId(request.getRoleId());
+        } else if (request.getRoleIds() != null && !request.getRoleIds().isEmpty()) {
+            user.setRoleId(request.getRoleIds().get(0));
+        }
+
         if (request.getAvatarUrl() != null) {
             user.setAvatarUrl(request.getAvatarUrl());
         }

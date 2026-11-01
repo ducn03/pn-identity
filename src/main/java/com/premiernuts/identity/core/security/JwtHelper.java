@@ -32,6 +32,10 @@ public class JwtHelper {
     }
 
     public String generateAccessToken(Long userId, String username, Long companyId, List<String> roles) {
+        return generateAccessToken(userId, username, companyId, roles, java.util.Collections.emptyList());
+    }
+
+    public String generateAccessToken(Long userId, String username, Long companyId, List<String> roles, List<String> permissions) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + accessTokenExpirationMs);
 
@@ -40,6 +44,7 @@ public class JwtHelper {
                 .claim("userId", userId)
                 .claim("companyId", companyId)
                 .claim("roles", roles)
+                .claim("permissions", permissions)
                 .claim("type", "ACCESS")
                 .issuedAt(now)
                 .expiration(expiryDate)
@@ -101,5 +106,11 @@ public class JwtHelper {
     public List<String> extractRoles(String token) {
         Claims claims = extractClaims(token);
         return claims.get("roles", List.class);
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<String> extractPermissions(String token) {
+        Claims claims = extractClaims(token);
+        return claims.get("permissions", List.class);
     }
 }

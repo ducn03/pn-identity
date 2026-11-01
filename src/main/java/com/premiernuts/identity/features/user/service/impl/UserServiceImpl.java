@@ -18,11 +18,17 @@ import com.premiernuts.identity.features.user.dto.UserSearchDTO;
 import com.premiernuts.identity.features.user.mapper.UserMapper;
 import com.premiernuts.identity.features.user.service.UserService;
 import com.premiernuts.identity.jpa.domain.company.Department;
+import com.premiernuts.identity.jpa.domain.role.Permission;
 import com.premiernuts.identity.jpa.domain.role.Role;
+import com.premiernuts.identity.jpa.domain.role.RolePermission;
 import com.premiernuts.identity.jpa.domain.user.User;
+import com.premiernuts.identity.jpa.domain.user.UserPermission;
 import com.premiernuts.identity.jpa.domain.user.UserRole;
 import com.premiernuts.identity.jpa.repository.company.DepartmentRepository;
+import com.premiernuts.identity.jpa.repository.role.PermissionRepository;
+import com.premiernuts.identity.jpa.repository.role.RolePermissionRepository;
 import com.premiernuts.identity.jpa.repository.role.RoleRepository;
+import com.premiernuts.identity.jpa.repository.user.UserPermissionRepository;
 import com.premiernuts.identity.jpa.repository.user.UserRepository;
 import com.premiernuts.identity.jpa.repository.user.UserRoleRepository;
 import com.premiernuts.identity.jpa.repository.user.UserSpecification;
@@ -50,6 +56,9 @@ public class UserServiceImpl implements UserService {
     private final DepartmentRepository departmentRepository;
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
+    private final UserPermissionRepository userPermissionRepository;
+    private final RolePermissionRepository rolePermissionRepository;
+    private final PermissionRepository permissionRepository;
     private final TokenStorageService tokenStorageService;
     private final UserMapper userMapper;
 
@@ -76,14 +85,23 @@ public class UserServiceImpl implements UserService {
             }
         }
 
-        // Tối ưu batch fetch roles
+        // Tối ưu batch fetch roles (cả từ T_USER_ROLE và T_USER.role_id)
         List<Long> userIds = page.getContent().stream().map(User::getId).toList();
         List<UserRole> allUserRoles = userRoleRepository.findAllByUserIdIn(userIds);
-        List<Long> roleIds = allUserRoles.stream().map(UserRole::getRoleId).distinct().toList();
+        List<Long> allRoleIds = new ArrayList<>();
+        for (UserRole ur : allUserRoles) {
+            allRoleIds.add(ur.getRoleId());
+        }
+        for (User u : page.getContent()) {
+            if (u.getRoleId() != null) {
+                allRoleIds.add(u.getRoleId());
+            }
+        }
+        List<Long> distinctRoleIds = allRoleIds.stream().distinct().toList();
 
         Map<Long, Role> roleMap = new HashMap<>();
-        if (!roleIds.isEmpty()) {
-            List<Role> roles = roleRepository.findAllByIdIn(roleIds);
+        if (!distinctRoleIds.isEmpty()) {
+            List<Role> roles = roleRepository.findAllByIdIn(distinctRoleIds);
             for (Role r : roles) {
                 roleMap.put(r.getId(), r);
             }
@@ -91,6 +109,19 @@ public class UserServiceImpl implements UserService {
 
         Map<Long, List<UserRole>> userRoleMap = allUserRoles.stream()
                 .collect(Collectors.groupingBy(UserRole::getUserId));
+
+        // Tối ưu batch fetch user permissions
+        List<UserPermission> allUserPerms = userPermissionRepository.findAllByUserIdIn(userIds);
+        List<Long> allPermIds = allUserPerms.stream().map(UserPermission::getPermissionId).distinct().toList();
+        Map<Long, Permission> permMap = new HashMap<>();
+        if (!allPermIds.isEmpty()) {
+            List<Permission> perms = permissionRepository.findAllById(allPermIds);
+            for (Permission p : perms) {
+                permMap.put(p.getId(), p);
+            }
+        }
+        Map<Long, List<UserPermission>> userPermMap = allUserPerms.stream()
+                .collect(Collectors.groupingBy(UserPermission::getUserId));
 
         return page.map(user -> {
             List<UserRole> userRoles = userRoleMap.getOrDefault(user.getId(), Collections.emptyList());
@@ -102,12 +133,46 @@ public class UserServiceImpl implements UserService {
                 }
             }
 
+            Long primaryRoleId = user.getRoleId();
+            String primaryRoleCode = null;
+            String primaryRoleName = null;
+            if (primaryRoleId != null && roleMap.containsKey(primaryRoleId)) {
+                Role r = roleMap.get(primaryRoleId);
+                primaryRoleCode = r.getCode();
+                primaryRoleName = r.getName();
+                if (!roleCodes.contains(primaryRoleCode)) {
+                    roleCodes.add(0, primaryRoleCode);
+                }
+            } else if (!roleCodes.isEmpty()) {
+                primaryRoleCode = roleCodes.get(0);
+            }
+
             String deptName = null;
             if (user.getDepartmentId() != null) {
                 deptName = deptNameMap.get(user.getDepartmentId());
             }
 
-            return userMapper.toDTO(user, deptName, roleCodes, userRoleIds);
+            List<UserPermission> uPerms = userPermMap.getOrDefault(user.getId(), Collections.emptyList());
+            List<Long> uPermIds = new ArrayList<>();
+            List<String> uPermCodes = new ArrayList<>();
+            for (UserPermission up : uPerms) {
+                uPermIds.add(up.getPermissionId());
+                if (permMap.containsKey(up.getPermissionId())) {
+                    uPermCodes.add(permMap.get(up.getPermissionId()).getCode());
+                }
+            }
+
+            return userMapper.toDTO(
+                    user,
+                    deptName,
+                    primaryRoleId,
+                    primaryRoleCode,
+                    primaryRoleName,
+                    roleCodes,
+                    userRoleIds,
+                    uPermIds,
+                    uPermCodes
+            );
         });
     }
 
@@ -129,16 +194,49 @@ public class UserServiceImpl implements UserService {
         }
 
         List<UserRole> userRoles = userRoleRepository.findAllByUserId(user.getId());
-        List<Long> roleIds = userRoles.stream().map(UserRole::getRoleId).toList();
+        List<Long> roleIds = new ArrayList<>(userRoles.stream().map(UserRole::getRoleId).toList());
+        if (user.getRoleId() != null && !roleIds.contains(user.getRoleId())) {
+            roleIds.add(0, user.getRoleId());
+        }
+
         List<String> roleCodes = new ArrayList<>();
+        Long primaryRoleId = user.getRoleId();
+        String primaryRoleCode = null;
+        String primaryRoleName = null;
+
         if (!roleIds.isEmpty()) {
             List<Role> roles = roleRepository.findAllByIdIn(roleIds);
             for (Role r : roles) {
                 roleCodes.add(r.getCode());
+                if (primaryRoleId != null && primaryRoleId.equals(r.getId())) {
+                    primaryRoleCode = r.getCode();
+                    primaryRoleName = r.getName();
+                }
             }
         }
 
-        return userMapper.toDTO(user, deptName, roleCodes, roleIds);
+        // Lấy trực tiếp permissions từ T_USER_PERMISSION
+        List<UserPermission> userPerms = userPermissionRepository.findAllByUserId(user.getId());
+        List<Long> permIds = userPerms.stream().map(UserPermission::getPermissionId).toList();
+        List<String> permCodes = new ArrayList<>();
+        if (!permIds.isEmpty()) {
+            List<Permission> perms = permissionRepository.findAllById(permIds);
+            for (Permission p : perms) {
+                permCodes.add(p.getCode());
+            }
+        }
+
+        return userMapper.toDTO(
+                user,
+                deptName,
+                primaryRoleId,
+                primaryRoleCode,
+                primaryRoleName,
+                roleCodes,
+                roleIds,
+                permIds,
+                permCodes
+        );
     }
 
     @Override
@@ -157,18 +255,47 @@ public class UserServiceImpl implements UserService {
         }
 
         // Chỉ Admin mới có quyền gán quyền Admin
-        validateAdminRoleAssignment(request.getRoleIds());
+        validateAdminRoleAssignment(request.getRoleId(), request.getRoleIds());
 
         User user = userMapper.toEntity(request, defaultCompanyId);
         user = userRepository.save(user);
 
-        // Lưu vai trò
+        // Lưu vai trò vào bảng tương thích ngược T_USER_ROLE
+        Long assignedRoleId = user.getRoleId();
+        if (assignedRoleId != null) {
+            UserRole ur = new UserRole();
+            ur.setUserId(user.getId());
+            ur.setRoleId(assignedRoleId);
+            userRoleRepository.save(ur);
+        }
         if (request.getRoleIds() != null && !request.getRoleIds().isEmpty()) {
             for (Long roleId : request.getRoleIds()) {
-                UserRole ur = new UserRole();
-                ur.setUserId(user.getId());
-                ur.setRoleId(roleId);
-                userRoleRepository.save(ur);
+                if (assignedRoleId == null || !assignedRoleId.equals(roleId)) {
+                    UserRole ur = new UserRole();
+                    ur.setUserId(user.getId());
+                    ur.setRoleId(roleId);
+                    userRoleRepository.save(ur);
+                }
+            }
+        }
+
+        // Lưu permissions trực tiếp vào T_USER_PERMISSION
+        if (request.getPermissionIds() != null && !request.getPermissionIds().isEmpty()) {
+            // Quản trị viên tùy biến danh sách quyền cho nhân viên
+            for (Long pId : request.getPermissionIds()) {
+                UserPermission up = new UserPermission();
+                up.setUserId(user.getId());
+                up.setPermissionId(pId);
+                userPermissionRepository.save(up);
+            }
+        } else if (assignedRoleId != null) {
+            // Không truyền tùy biến -> tự động copy khuôn mẫu permissions từ Role Template
+            List<RolePermission> templatePerms = rolePermissionRepository.findAllByRoleId(assignedRoleId);
+            for (RolePermission rp : templatePerms) {
+                UserPermission up = new UserPermission();
+                up.setUserId(user.getId());
+                up.setPermissionId(rp.getPermissionId());
+                userPermissionRepository.save(up);
             }
         }
 
@@ -193,30 +320,60 @@ public class UserServiceImpl implements UserService {
             user.setEmail(email);
         }
 
+        validateAdminRoleAssignment(request.getRoleId(), request.getRoleIds());
+
         userMapper.updateEntity(user, request);
         user = userRepository.save(user);
 
-        // Cập nhật vai trò nếu có truyền vào (chỉ Admin mới được gán vai trò Admin)
-        if (request.getRoleIds() != null) {
-            validateAdminRoleAssignment(request.getRoleIds());
+        // Cập nhật T_USER_ROLE
+        Long updatedRoleId = user.getRoleId();
+        if (request.getRoleIds() != null || updatedRoleId != null) {
             userRoleRepository.deleteAllByUserId(user.getId());
-            for (Long roleId : request.getRoleIds()) {
+            if (updatedRoleId != null) {
                 UserRole ur = new UserRole();
                 ur.setUserId(user.getId());
-                ur.setRoleId(roleId);
+                ur.setRoleId(updatedRoleId);
                 userRoleRepository.save(ur);
+            }
+            if (request.getRoleIds() != null) {
+                for (Long roleId : request.getRoleIds()) {
+                    if (updatedRoleId == null || !updatedRoleId.equals(roleId)) {
+                        UserRole ur = new UserRole();
+                        ur.setUserId(user.getId());
+                        ur.setRoleId(roleId);
+                        userRoleRepository.save(ur);
+                    }
+                }
+            }
+        }
+
+        // Cập nhật T_USER_PERMISSION nếu có truyền danh sách mới
+        if (request.getPermissionIds() != null) {
+            userPermissionRepository.deleteAllByUserId(user.getId());
+            for (Long pId : request.getPermissionIds()) {
+                UserPermission up = new UserPermission();
+                up.setUserId(user.getId());
+                up.setPermissionId(pId);
+                userPermissionRepository.save(up);
             }
         }
 
         return getUserById(user.getId());
     }
 
-    private void validateAdminRoleAssignment(List<Long> roleIds) {
-        if (roleIds == null || roleIds.isEmpty()) {
+    private void validateAdminRoleAssignment(Long roleId, List<Long> roleIds) {
+        List<Long> allRoleIds = new ArrayList<>();
+        if (roleId != null) {
+            allRoleIds.add(roleId);
+        }
+        if (roleIds != null) {
+            allRoleIds.addAll(roleIds);
+        }
+        if (allRoleIds.isEmpty()) {
             return;
         }
 
-        List<Role> roles = roleRepository.findAllByIdIn(roleIds);
+        List<Role> roles = roleRepository.findAllByIdIn(allRoleIds);
         boolean containsAdminRole = roles.stream().anyMatch(r ->
                 ERole.Names.ROLE_ADMIN.equalsIgnoreCase(r.getCode()) ||
                 ERole.Names.SUPER_ADMIN.equalsIgnoreCase(r.getCode())
