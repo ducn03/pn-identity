@@ -239,8 +239,9 @@ public class UserServiceImpl implements UserService {
             selectedRoleId = request.getRoleIds().get(0);
         }
 
-        // Chỉ Admin mới có quyền gán quyền Admin
+        // Chỉ Admin mới có quyền gán quyền Admin hoặc gán các quyền đặc thù của Admin
         validateAdminRoleAssignment(selectedRoleId);
+        validateAdminPermissionAssignment(request.getPermissionIds());
 
         User user = userMapper.toEntity(request, defaultCompanyId);
         user.setUsername(username);
@@ -279,6 +280,20 @@ public class UserServiceImpl implements UserService {
         }
         User user = userOpt.get();
 
+        // Không ai ngoài Admin được phép chỉnh sửa tài khoản Admin
+        if (user.getRoleId() != null) {
+            Optional<Role> curRoleOpt = roleRepository.findById(user.getRoleId());
+            if (curRoleOpt.isPresent()) {
+                String curCode = curRoleOpt.get().getCode();
+                if (ERole.ROLE_ADMIN.name().equalsIgnoreCase(curCode) || ERole.SUPER_ADMIN.name().equalsIgnoreCase(curCode)) {
+                    UserPrincipal principal = UserContext.get();
+                    if (principal == null || (!principal.hasRole(ERole.ROLE_ADMIN.name()) && !principal.hasRole(ERole.SUPER_ADMIN.name()))) {
+                        throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
+                    }
+                }
+            }
+        }
+
         // Chỉ cho phép Admin sửa username
         if (StringHelper.isNotBlank(request.getUsername())) {
             String newUsername = StringHelper.toLowerCase(request.getUsername());
@@ -309,6 +324,7 @@ public class UserServiceImpl implements UserService {
         }
 
         validateAdminRoleAssignment(targetRoleId);
+        validateAdminPermissionAssignment(request.getPermissionIds());
 
         userMapper.updateEntity(user, request);
         if (targetRoleId != null) {
@@ -347,6 +363,25 @@ public class UserServiceImpl implements UserService {
         if (isAdminRole) {
             UserPrincipal principal = UserContext.get();
             if (principal == null || (!principal.hasRole(ERole.ROLE_ADMIN.name()) && !principal.hasRole(ERole.SUPER_ADMIN.name()))) {
+                throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
+            }
+        }
+    }
+
+    private void validateAdminPermissionAssignment(List<Long> permissionIds) {
+        if (permissionIds == null || permissionIds.isEmpty()) {
+            return;
+        }
+        UserPrincipal principal = UserContext.get();
+        if (principal != null && (principal.hasRole(ERole.ROLE_ADMIN.name()) || principal.hasRole(ERole.SUPER_ADMIN.name()))) {
+            return;
+        }
+
+        List<Permission> perms = permissionRepository.findAllById(permissionIds);
+        for (Permission p : perms) {
+            if ("LOG_VIEW".equalsIgnoreCase(p.getCode())
+                    || "HEALTH_VIEW".equalsIgnoreCase(p.getCode())
+                    || "DASHBOARD_VIEW".equalsIgnoreCase(p.getCode())) {
                 throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
             }
         }

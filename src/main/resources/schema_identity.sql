@@ -110,7 +110,8 @@ CREATE TABLE IF NOT EXISTS T_ROLE_PERMISSION (
     id BIGSERIAL PRIMARY KEY,
     role_id BIGINT NOT NULL,                     -- Khóa ngoại logic tới M_ROLE.id (Role template)
     permission_id BIGINT NOT NULL,               -- Khóa ngoại logic tới M_PERMISSION.id
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_role_permission UNIQUE (role_id, permission_id)
 );
 
 -- ------------------------------------------------------------------------------
@@ -121,7 +122,8 @@ CREATE TABLE IF NOT EXISTS T_USER_PERMISSION (
     user_id BIGINT NOT NULL,                     -- Khóa ngoại logic tới T_USER.id
     permission_id BIGINT NOT NULL,               -- Khóa ngoại logic tới M_PERMISSION.id
     assigned_by BIGINT,                          -- Khóa ngoại logic tới T_USER.id người gán
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_user_permission UNIQUE (user_id, permission_id)
 );
 
 -- ------------------------------------------------------------------------------
@@ -232,7 +234,12 @@ VALUES
 
     -- Phân hệ Ban Giám Đốc & Quản Trị (MANAGEMENT)
     ('DIRECTOR_APPROVE', 'Phê duyệt cấp Giám Đốc', 'MANAGEMENT', 'Phê duyệt các hợp đồng, hạn mức và đơn hàng trọng điểm', 'ACTIVE'),
-    ('REPORT_VIEW', 'Xem báo cáo thống kê toàn diện', 'MANAGEMENT', 'Xem dashboard số liệu tổng hợp doanh thu, tồn kho toàn công ty', 'ACTIVE')
+    ('REPORT_VIEW', 'Xem báo cáo thống kê toàn diện', 'MANAGEMENT', 'Xem dashboard số liệu tổng hợp doanh thu, tồn kho toàn công ty', 'ACTIVE'),
+
+    -- Phân hệ Quản Trị Hệ Thống (SYSTEM)
+    ('DASHBOARD_VIEW', 'Bảng điều khiển & Thống kê', 'SYSTEM', 'Xem các chỉ số thống kê và bàn làm việc tổng thể', 'ACTIVE'),
+    ('LOG_VIEW', 'Nhật ký truy cập hệ thống', 'SYSTEM', 'Tra cứu lịch sử đăng nhập và kiểm toán an toàn', 'ACTIVE'),
+    ('HEALTH_VIEW', 'Giám sát hệ thống', 'SYSTEM', 'Kiểm tra tình trạng sức khỏe máy chủ và cơ sở dữ liệu', 'ACTIVE')
 ON CONFLICT (code) DO NOTHING;
 
 -- 5. Seed T_ROLE_PERMISSION (Role Template: Bản đồ quyền mẫu cho từng vai trò)
@@ -240,7 +247,7 @@ INSERT INTO T_ROLE_PERMISSION (role_id, permission_id)
 SELECT r.id, p.id
 FROM (
     VALUES
-        -- ROLE_ADMIN: Sở hữu toàn bộ các quyền trong hệ thống
+        -- ROLE_ADMIN: Sở hữu toàn bộ các quyền trong hệ thống (20 quyền)
         ('ROLE_ADMIN', 'USER_VIEW'),
         ('ROLE_ADMIN', 'USER_MANAGE'),
         ('ROLE_ADMIN', 'ROLE_ASSIGN'),
@@ -258,18 +265,28 @@ FROM (
         ('ROLE_ADMIN', 'QC_INSPECT'),
         ('ROLE_ADMIN', 'DIRECTOR_APPROVE'),
         ('ROLE_ADMIN', 'REPORT_VIEW'),
+        ('ROLE_ADMIN', 'DASHBOARD_VIEW'),
+        ('ROLE_ADMIN', 'LOG_VIEW'),
+        ('ROLE_ADMIN', 'HEALTH_VIEW'),
 
-        -- ROLE_DIRECTOR: Ban Giám Đốc
-        ('ROLE_DIRECTOR', 'DIRECTOR_APPROVE'),
-        ('ROLE_DIRECTOR', 'REPORT_VIEW'),
+        -- ROLE_DIRECTOR: Ban Giám Đốc (17 quyền, Không có DASHBOARD_VIEW, LOG_VIEW, HEALTH_VIEW)
+        ('ROLE_DIRECTOR', 'USER_VIEW'),
+        ('ROLE_DIRECTOR', 'USER_MANAGE'),
+        ('ROLE_DIRECTOR', 'ROLE_ASSIGN'),
+        ('ROLE_DIRECTOR', 'INVENTORY_VIEW'),
+        ('ROLE_DIRECTOR', 'INVENTORY_IMPORT'),
+        ('ROLE_DIRECTOR', 'INVENTORY_EXPORT'),
+        ('ROLE_DIRECTOR', 'INVENTORY_AUDIT'),
+        ('ROLE_DIRECTOR', 'BRANCH_MANAGE'),
+        ('ROLE_DIRECTOR', 'BRANCH_INVENTORY_VIEW'),
         ('ROLE_DIRECTOR', 'FINANCE_VIEW'),
         ('ROLE_DIRECTOR', 'FINANCE_MANAGE'),
-        ('ROLE_DIRECTOR', 'INVENTORY_VIEW'),
-        ('ROLE_DIRECTOR', 'BRANCH_INVENTORY_VIEW'),
-        ('ROLE_DIRECTOR', 'BRANCH_MANAGE'),
-        ('ROLE_DIRECTOR', 'USER_VIEW'),
         ('ROLE_DIRECTOR', 'MANUFACTURING_VIEW'),
+        ('ROLE_DIRECTOR', 'MANUFACTURING_EXECUTE'),
         ('ROLE_DIRECTOR', 'QC_VIEW'),
+        ('ROLE_DIRECTOR', 'QC_INSPECT'),
+        ('ROLE_DIRECTOR', 'DIRECTOR_APPROVE'),
+        ('ROLE_DIRECTOR', 'REPORT_VIEW'),
 
         -- ROLE_BRANCH_MANAGER: Quản Lý Chi Nhánh
         ('ROLE_BRANCH_MANAGER', 'BRANCH_MANAGE'),
