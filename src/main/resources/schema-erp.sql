@@ -361,10 +361,8 @@ FROM (
         ('ROLE_ADMIN', 'HRM_VIEW'),
         ('ROLE_ADMIN', 'HRM_MANAGE'),
 
-        -- ROLE_DIRECTOR: Ban Giám Đốc (17 quyền, Không có DASHBOARD_VIEW, LOG_VIEW, HEALTH_VIEW)
+        -- ROLE_DIRECTOR: Ban Giám Đốc (Điều hành, duyệt hạn mức, không quản trị/phân quyền tài khoản)
         ('ROLE_DIRECTOR', 'USER_VIEW'),
-        ('ROLE_DIRECTOR', 'USER_MANAGE'),
-        ('ROLE_DIRECTOR', 'ROLE_ASSIGN'),
         ('ROLE_DIRECTOR', 'INVENTORY_VIEW'),
         ('ROLE_DIRECTOR', 'INVENTORY_IMPORT'),
         ('ROLE_DIRECTOR', 'INVENTORY_EXPORT'),
@@ -379,6 +377,9 @@ FROM (
         ('ROLE_DIRECTOR', 'QC_INSPECT'),
         ('ROLE_DIRECTOR', 'DIRECTOR_APPROVE'),
         ('ROLE_DIRECTOR', 'REPORT_VIEW'),
+        ('ROLE_DIRECTOR', 'COMPANY_VIEW'),
+        ('ROLE_DIRECTOR', 'COMPANY_MANAGE'),
+        ('ROLE_DIRECTOR', 'HRM_VIEW'),
 
         -- ROLE_BRANCH_MANAGER: Quản Lý Chi Nhánh
         ('ROLE_BRANCH_MANAGER', 'BRANCH_MANAGE'),
