@@ -1,6 +1,5 @@
 package com.premiernuts.identity.core.security;
 
-import com.premiernuts.identity.core.enums.ERole;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -36,20 +35,10 @@ public class UserPrincipal {
         this.permissions = permissions;
     }
 
-    public boolean hasRole(String role) {
-        if (this.roles == null || role == null) {
-            return false;
-        }
-        return this.roles.contains(role);
-    }
-
     public boolean hasPermission(String permission) {
-        if (hasRole(ERole.ROLE_ADMIN.name()) || hasRole(ERole.SUPER_ADMIN.name())) {
-            return true;
-        }
         if (this.permissions == null || permission == null) {
             return false;
         }
-        return this.permissions.contains(permission);
+        return this.permissions.contains("*") || this.permissions.contains(permission);
     }
 }

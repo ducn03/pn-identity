@@ -273,7 +273,7 @@ AND NOT EXISTS (
 -- 3. Seed M_ROLE (Template vai trò)
 INSERT INTO M_ROLE (code, name, description, level, status)
 VALUES 
-    ('ROLE_ADMIN', 'Quản Trị Viên Hệ Thống', 'Toàn quyền cấu hình, nhân sự và phân quyền Premier Nuts ERP', 2, 'ACTIVE'),
+    ('ROLE_ADMIN', 'Quản Trị Viên Hệ Thống', 'Toàn quyền cấu hình, nhân sự và phân quyền Premier Nuts ERP', 1, 'ACTIVE'),
     ('ROLE_DIRECTOR', 'Ban Giám Đốc', 'Phê duyệt hạn mức, dự toán, xem toàn bộ báo cáo và điều hành', 3, 'ACTIVE'),
     ('ROLE_BRANCH_MANAGER', 'Quản Lý Chi Nhánh', 'Quản lý vận hành chi nhánh, kho chi nhánh và điều phối nhân sự', 4, 'ACTIVE'),
     ('ROLE_KHO', 'Thủ Kho', 'Quản lý xuất, nhập, tồn kho hạt và vật tư sản xuất', 5, 'ACTIVE'),

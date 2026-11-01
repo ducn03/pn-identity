@@ -2,7 +2,6 @@ package com.premiernuts.identity.features.auth.service.impl;
 
 import com.premiernuts.identity.core.constants.SecurityConstants;
 import com.premiernuts.identity.core.enums.ELoginStatus;
-import com.premiernuts.identity.core.enums.ERole;
 import com.premiernuts.identity.core.enums.EStatus;
 import com.premiernuts.identity.core.exception.ErrorCodes;
 import com.premiernuts.identity.core.exception.PnException;
@@ -85,7 +84,7 @@ public class AuthServiceImpl implements AuthService {
         } else {
             roles = Collections.emptyList();
         }
-        List<String> permissions = getUserPermissions(user, roleCode);
+        List<String> permissions = getUserPermissions(user);
 
         // Sinh cặp Token chứa role và permissions
         String accessToken = jwtHelper.generateAccessToken(user.getId(), user.getUsername(), user.getCompanyId(), roles, permissions);
@@ -144,7 +143,7 @@ public class AuthServiceImpl implements AuthService {
         } else {
             roles = Collections.emptyList();
         }
-        List<String> permissions = getUserPermissions(user, roleCode);
+        List<String> permissions = getUserPermissions(user);
         String newAccessToken = jwtHelper.generateAccessToken(user.getId(), user.getUsername(), user.getCompanyId(), roles, permissions);
 
         UserPrincipal principal = new UserPrincipal(user.getId(), user.getUsername(), user.getCompanyId(), roles, permissions);
@@ -184,7 +183,7 @@ public class AuthServiceImpl implements AuthService {
         } else {
             roles = Collections.emptyList();
         }
-        List<String> permissions = getUserPermissions(user, roleCode);
+        List<String> permissions = getUserPermissions(user);
 
         return new UserPrincipal(user.getId(), user.getUsername(), user.getCompanyId(), roles, permissions);
     }
@@ -200,13 +199,7 @@ public class AuthServiceImpl implements AuthService {
         return null;
     }
 
-    private List<String> getUserPermissions(User user, String roleCode) {
-        // Quản trị viên có toàn bộ quyền hệ thống
-        if (ERole.ROLE_ADMIN.name().equals(roleCode) || ERole.SUPER_ADMIN.name().equals(roleCode)) {
-            List<Permission> allPerms = permissionRepository.findAll();
-            return allPerms.stream().map(Permission::getCode).toList();
-        }
-
+    private List<String> getUserPermissions(User user) {
         Set<Long> permIds = new LinkedHashSet<>();
 
         // 1. Kế thừa quyền từ Role Template (M_ROLE -> T_ROLE_PERMISSION)

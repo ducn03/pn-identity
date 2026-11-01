@@ -1,6 +1,5 @@
 package com.premiernuts.identity.features.permission.service.impl;
 
-import com.premiernuts.identity.core.enums.ERole;
 import com.premiernuts.identity.core.security.UserContext;
 import com.premiernuts.identity.core.security.UserPrincipal;
 import com.premiernuts.identity.features.permission.dto.PermissionDTO;
@@ -30,7 +29,7 @@ public class PermissionServiceImpl implements PermissionService {
     public List<PermissionDTO> getPermissions() {
         UserPrincipal principal = UserContext.get();
         List<Permission> list;
-        if (principal != null && (principal.hasRole(ERole.ROLE_ADMIN.name()) || principal.hasRole(ERole.SUPER_ADMIN.name()))) {
+        if (principal != null && principal.getPermissions() != null && principal.getPermissions().contains("*")) {
             list = permissionRepository.findAll();
         } else if (principal != null && principal.getPermissions() != null && !principal.getPermissions().isEmpty()) {
             list = permissionRepository.findAllByCodeIn(principal.getPermissions());

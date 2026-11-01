@@ -1,7 +1,6 @@
 package com.premiernuts.identity.core.aop;
 
 import com.premiernuts.identity.core.constants.SecurityConstants;
-import com.premiernuts.identity.core.enums.ERole;
 import com.premiernuts.identity.core.exception.ErrorCodes;
 import com.premiernuts.identity.core.exception.PnException;
 import com.premiernuts.identity.core.security.JwtHelper;
@@ -95,27 +94,15 @@ public class LogActivityAspect {
                 throw new PnException(ErrorCodes.UNAUTHORIZED.TOKEN_INVALID);
             }
 
-            boolean isAdmin = false;
-            List<String> roles = principal.getRoles();
-            if (roles != null) {
-                if (roles.contains(ERole.ROLE_ADMIN.name()) || roles.contains(ERole.SUPER_ADMIN.name())) {
-                    isAdmin = true;
-                }
-            }
-
-            // Kiểm tra phân quyền hoàn toàn bằng Permission (Admin bypass toàn bộ)
+            // Kiểm tra phân quyền hoàn toàn bằng PBAC (Permission-Based Access Control)
             if (requiredPermissions != null && requiredPermissions.length > 0) {
                 boolean hasPerm = false;
-                if (isAdmin) {
-                    hasPerm = true;
-                } else {
-                    List<String> permissions = principal.getPermissions();
-                    if (permissions != null) {
-                        for (String reqPerm : requiredPermissions) {
-                            if (reqPerm != null && (permissions.contains("*") || permissions.contains(reqPerm))) {
-                                hasPerm = true;
-                                break;
-                            }
+                List<String> permissions = principal.getPermissions();
+                if (permissions != null) {
+                    for (String reqPerm : requiredPermissions) {
+                        if (reqPerm != null && (permissions.contains("*") || permissions.contains(reqPerm))) {
+                            hasPerm = true;
+                            break;
                         }
                     }
                 }
