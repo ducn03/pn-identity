@@ -37,7 +37,11 @@ public enum EPermission {
     // Phân hệ Hệ Thống Đặc Quyền (SYSTEM)
     DASHBOARD_VIEW,
     LOG_VIEW,
-    HEALTH_VIEW;
+    HEALTH_VIEW,
+
+    // Phân hệ Hồ Sơ Pháp Nhân & Doanh Nghiệp (COMPANY)
+    COMPANY_VIEW,
+    COMPANY_MANAGE;
 
     private static final Set<String> SYSTEM_PERMISSIONS = Set.of(
             Names.DASHBOARD_VIEW,
@@ -84,5 +88,8 @@ public enum EPermission {
         public static final String DASHBOARD_VIEW = "DASHBOARD_VIEW";
         public static final String LOG_VIEW = "LOG_VIEW";
         public static final String HEALTH_VIEW = "HEALTH_VIEW";
+
+        public static final String COMPANY_VIEW = "COMPANY_VIEW";
+        public static final String COMPANY_MANAGE = "COMPANY_MANAGE";
     }
 }

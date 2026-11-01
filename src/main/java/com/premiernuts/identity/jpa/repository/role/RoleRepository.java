@@ -13,4 +13,6 @@ public interface RoleRepository extends JpaRepository<Role, Long> {
     Optional<Role> findByCode(String code);
 
     List<Role> findAllByIdIn(List<Long> ids);
+
+    List<Role> findAllByLevelGreaterThan(Integer level);
 }

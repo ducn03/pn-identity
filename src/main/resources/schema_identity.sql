@@ -240,7 +240,11 @@ VALUES
     -- Phân hệ Quản Trị Hệ Thống (SYSTEM)
     ('DASHBOARD_VIEW', 'Bảng điều khiển & Thống kê', 'SYSTEM', 'Xem các chỉ số thống kê và bàn làm việc tổng thể', 'ACTIVE'),
     ('LOG_VIEW', 'Nhật ký truy cập hệ thống', 'SYSTEM', 'Tra cứu lịch sử đăng nhập và kiểm toán an toàn', 'ACTIVE'),
-    ('HEALTH_VIEW', 'Giám sát hệ thống', 'SYSTEM', 'Kiểm tra tình trạng sức khỏe máy chủ và cơ sở dữ liệu', 'ACTIVE')
+    ('HEALTH_VIEW', 'Giám sát hệ thống', 'SYSTEM', 'Kiểm tra tình trạng sức khỏe máy chủ và cơ sở dữ liệu', 'ACTIVE'),
+
+    -- Phân hệ Hồ Sơ Doanh Nghiệp (COMPANY)
+    ('COMPANY_VIEW', 'Xem thông tin pháp nhân công ty', 'COMPANY', 'Tra cứu hồ sơ pháp lý và thông tin doanh nghiệp', 'ACTIVE'),
+    ('COMPANY_MANAGE', 'Quản lý thông tin doanh nghiệp', 'COMPANY', 'Cập nhật mã số thuế, địa chỉ, hotline doanh nghiệp', 'ACTIVE')
 ON CONFLICT (code) DO NOTHING;
 
 -- 5. Seed T_ROLE_PERMISSION (Role Template: Bản đồ quyền mẫu cho từng vai trò)

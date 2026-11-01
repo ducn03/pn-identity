@@ -26,6 +26,8 @@ public class UserDTO {
     private Long roleId;
     private String roleCode;
     private String roleName;
+    private Integer roleLevel;
+    private Boolean canManage;
     private List<String> roles;
     private List<Long> roleIds;
     private List<Long> permissionIds;

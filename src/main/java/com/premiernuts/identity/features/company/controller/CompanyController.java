@@ -45,7 +45,7 @@ public class CompanyController {
     }
 
     @PutMapping(CompanyEndpoints.COMPANY)
-    @LogActivity(requireAuth = true)
+    @LogActivity(requireAuth = true, permissions = {com.premiernuts.identity.core.enums.EPermission.Names.COMPANY_MANAGE})
     public ResponseEntity<ResponseData<CompanyDTO>> updateCompany(@Valid @RequestBody UpdateCompanyDTO request) {
         UserPrincipal principal = UserContext.get();
         Long companyId = CommonConstants.DEFAULT_COMPANY_ID;

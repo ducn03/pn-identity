@@ -117,10 +117,14 @@ public class UserServiceImpl implements UserService {
         Map<Long, List<UserPermission>> userPermMap = allUserPerms.stream()
                 .collect(Collectors.groupingBy(UserPermission::getUserId));
 
+        UserPrincipal principal = UserContext.get();
+        Integer actorLevel = userRepository.resolveActorLevel(principal);
+
         return page.map(user -> {
             Long primaryRoleId = user.getRoleId();
             String primaryRoleCode = null;
             String primaryRoleName = null;
+            Integer targetRoleLevel = null;
             List<String> roleCodes = new ArrayList<>();
             List<Long> userRoleIds = new ArrayList<>();
 
@@ -128,6 +132,7 @@ public class UserServiceImpl implements UserService {
                 Role r = roleMap.get(primaryRoleId);
                 primaryRoleCode = r.getCode();
                 primaryRoleName = r.getName();
+                targetRoleLevel = r.getLevel();
                 roleCodes.add(primaryRoleCode);
                 userRoleIds.add(primaryRoleId);
             }
@@ -158,7 +163,11 @@ public class UserServiceImpl implements UserService {
                     uPermCodes
             );
 
-            return userMapper.toDTO(user, ctx);
+            UserDTO dto = userMapper.toDTO(user, ctx);
+            dto.setRoleLevel(targetRoleLevel);
+            Boolean canManage = Role.canManage(actorLevel, targetRoleLevel);
+            dto.setCanManage(canManage);
+            return dto;
         });
     }
 
@@ -185,12 +194,14 @@ public class UserServiceImpl implements UserService {
         List<String> roleCodes = new ArrayList<>();
         List<Long> roleIds = new ArrayList<>();
 
+        Integer targetRoleLevel = null;
         if (primaryRoleId != null) {
             Optional<Role> roleOpt = roleRepository.findById(primaryRoleId);
             if (roleOpt.isPresent()) {
                 Role r = roleOpt.get();
                 primaryRoleCode = r.getCode();
                 primaryRoleName = r.getName();
+                targetRoleLevel = r.getLevel();
                 roleCodes.add(primaryRoleCode);
                 roleIds.add(primaryRoleId);
             }
@@ -229,7 +240,13 @@ public class UserServiceImpl implements UserService {
                 permCodes
         );
 
-        return userMapper.toDTO(user, ctx);
+        UserDTO dto = userMapper.toDTO(user, ctx);
+        UserPrincipal principal = UserContext.get();
+        Integer actorLevel = userRepository.resolveActorLevel(principal);
+        dto.setRoleLevel(targetRoleLevel);
+        Boolean canManage = Role.canManage(actorLevel, targetRoleLevel);
+        dto.setCanManage(canManage);
+        return dto;
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.premiernuts.identity.features.role.service.impl;
 
+import com.premiernuts.identity.core.enums.ERole;
 import com.premiernuts.identity.core.exception.ErrorCodes;
 import com.premiernuts.identity.core.exception.PnException;
 import com.premiernuts.identity.core.security.UserContext;
@@ -47,7 +48,18 @@ public class RoleServiceImpl implements RoleService {
     @Override
     @Transactional(readOnly = true)
     public List<RoleDTO> getRoles() {
-        List<Role> list = roleRepository.findAll();
+        UserPrincipal principal = UserContext.get();
+        Integer actorLevel = userRepository.resolveActorLevel(principal);
+
+        List<Role> list;
+        if (principal != null && (principal.hasRole(ERole.ROLE_ADMIN.name()) || principal.hasRole(ERole.SUPER_ADMIN.name()) || (actorLevel != null && actorLevel <= 2))) {
+            list = roleRepository.findAll();
+        } else if (actorLevel != null) {
+            list = roleRepository.findAllByLevelGreaterThan(actorLevel);
+        } else {
+            list = roleRepository.findAll();
+        }
+
         if (list.isEmpty()) {
             return Collections.emptyList();
         }
