@@ -96,7 +96,7 @@ public class RoleServiceImpl implements RoleService {
         Role targetRole = roleOpt.get();
 
         // Lấy cấp bậc của người thao tác (actor)
-        Integer actorLevel = resolveActorLevel(principal);
+        Integer actorLevel = userRepository.resolveActorLevel(principal);
 
         List<Permission> permsToAssign = Collections.emptyList();
         if (request != null && request.getPermissionIds() != null && !request.getPermissionIds().isEmpty()) {
@@ -127,20 +127,5 @@ public class RoleServiceImpl implements RoleService {
         }
 
         return roleMapper.toDTO(targetRole, pIds, pCodes);
-    }
-
-    private Integer resolveActorLevel(UserPrincipal principal) {
-        if (principal.getUserId() == null) {
-            return 99;
-        }
-        Optional<User> actorOpt = userRepository.findById(principal.getUserId());
-        if (actorOpt.isEmpty() || actorOpt.get().getRoleId() == null) {
-            return 99;
-        }
-        Optional<Role> rOpt = roleRepository.findById(actorOpt.get().getRoleId());
-        if (rOpt.isPresent() && rOpt.get().getLevel() != null) {
-            return rOpt.get().getLevel();
-        }
-        return 99;
     }
 }

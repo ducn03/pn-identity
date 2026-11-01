@@ -1,6 +1,6 @@
 package com.premiernuts.identity.features.user.service.impl;
 
-import com.premiernuts.identity.core.enums.ERole;
+import com.premiernuts.identity.core.enums.EPermission;
 import com.premiernuts.identity.core.enums.EStatus;
 import com.premiernuts.identity.core.exception.ErrorCodes;
 import com.premiernuts.identity.core.exception.PnException;
@@ -258,7 +258,7 @@ public class UserServiceImpl implements UserService {
         }
 
         UserPrincipal principal = UserContext.get();
-        Integer actorLevel = resolveActorLevel(principal);
+        Integer actorLevel = userRepository.resolveActorLevel(principal);
 
         Role targetRole = null;
         if (selectedRoleId != null) {
@@ -312,7 +312,7 @@ public class UserServiceImpl implements UserService {
         User user = userOpt.get();
 
         UserPrincipal principal = UserContext.get();
-        Integer actorLevel = resolveActorLevel(principal);
+        Integer actorLevel = userRepository.resolveActorLevel(principal);
 
         // Kiểm tra target user hiện tại: cấp dưới không được phép sửa cấp trên/ngang hàng
         Role curRole = null;
@@ -328,8 +328,8 @@ public class UserServiceImpl implements UserService {
         if (StringHelper.isNotBlank(request.getUsername())) {
             String newUsername = StringHelper.toLowerCase(request.getUsername());
             if (!newUsername.equalsIgnoreCase(user.getUsername())) {
-                if (principal == null || (!principal.hasRole(ERole.ROLE_ADMIN.name()) && !principal.hasRole(ERole.SUPER_ADMIN.name()))) {
-                    throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
+                if (principal == null || !principal.hasPermission(EPermission.Names.USER_MANAGE)) {
+                    throw new PnException(ErrorCodes.FORBIDDEN.ACCESS_DENIED);
                 }
                 if (userRepository.existsByUsername(newUsername)) {
                     throw new PnException(ErrorCodes.USER.USERNAME_ALREADY_EXISTS);
@@ -401,7 +401,7 @@ public class UserServiceImpl implements UserService {
         User user = userOpt.get();
 
         UserPrincipal principal = UserContext.get();
-        Integer actorLevel = resolveActorLevel(principal);
+        Integer actorLevel = userRepository.resolveActorLevel(principal);
 
         Role curRole = null;
         if (user.getRoleId() != null) {
@@ -451,7 +451,7 @@ public class UserServiceImpl implements UserService {
         User user = userOpt.get();
 
         UserPrincipal principal = UserContext.get();
-        Integer actorLevel = resolveActorLevel(principal);
+        Integer actorLevel = userRepository.resolveActorLevel(principal);
 
         Role curRole = null;
         if (user.getRoleId() != null) {
@@ -472,20 +472,5 @@ public class UserServiceImpl implements UserService {
     @Override
     public String generateUsername(String fullName) {
         return UsernameHelper.generateUniqueUsername(fullName, userRepository);
-    }
-
-    private Integer resolveActorLevel(UserPrincipal principal) {
-        if (principal == null || principal.getUserId() == null) {
-            return 99;
-        }
-        Optional<User> actorOpt = userRepository.findById(principal.getUserId());
-        if (actorOpt.isEmpty() || actorOpt.get().getRoleId() == null) {
-            return 99;
-        }
-        Optional<Role> rOpt = roleRepository.findById(actorOpt.get().getRoleId());
-        if (rOpt.isPresent() && rOpt.get().getLevel() != null) {
-            return rOpt.get().getLevel();
-        }
-        return 99;
     }
 }

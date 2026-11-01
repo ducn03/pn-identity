@@ -1,14 +1,19 @@
 package com.premiernuts.identity.features.user.validator;
 
+import com.premiernuts.identity.core.enums.EPermission;
 import com.premiernuts.identity.core.enums.EStatus;
 import com.premiernuts.identity.core.exception.ErrorCodes;
 import com.premiernuts.identity.core.exception.PnException;
+import com.premiernuts.identity.core.security.UserPrincipal;
 import com.premiernuts.identity.core.utils.MessageHelper;
 import com.premiernuts.identity.core.utils.StringHelper;
 import com.premiernuts.identity.features.user.dto.ChangePasswordDTO;
 import com.premiernuts.identity.features.user.dto.CreateUserDTO;
 import com.premiernuts.identity.features.user.dto.UpdateStatusDTO;
 import com.premiernuts.identity.features.user.dto.UpdateUserDTO;
+import com.premiernuts.identity.jpa.domain.role.Permission;
+import com.premiernuts.identity.jpa.domain.role.Role;
+import com.premiernuts.identity.jpa.domain.user.User;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -45,7 +50,7 @@ public class UserValidator {
         if (StringHelper.isBlank(request.getFullName())) {
             errors.add(MessageHelper.getMessage(ErrorCodes.VALIDATION.FULL_NAME_REQUIRED));
         } else {
-            String[] words = request.getFullName().trim().split("\\s+");
+            String[] words = StringHelper.trim(request.getFullName()).split("\\s+");
             if (words.length < 2) {
                 errors.add(MessageHelper.getMessage(ErrorCodes.VALIDATION.FULL_NAME_MIN_WORDS));
             }
@@ -131,85 +136,51 @@ public class UserValidator {
     }
 
     public void validateRoleAssignment(
-            com.premiernuts.identity.core.security.UserPrincipal actor,
+            UserPrincipal actor,
             Integer actorLevel,
-            com.premiernuts.identity.jpa.domain.role.Role targetRole
+            Role targetRole
     ) {
         if (actor == null) {
             throw new PnException(ErrorCodes.UNAUTHORIZED.TOKEN_INVALID);
         }
 
-        boolean isSuperAdmin = actor.hasRole(com.premiernuts.identity.core.enums.ERole.Names.SUPER_ADMIN);
-        if (isSuperAdmin) {
-            return;
+        if (!actor.hasPermission(EPermission.Names.ROLE_ASSIGN)) {
+            throw new PnException(ErrorCodes.FORBIDDEN.ACCESS_DENIED);
         }
 
-        boolean isAdmin = actor.hasRole(com.premiernuts.identity.core.enums.ERole.Names.ROLE_ADMIN);
-
-        if (targetRole != null) {
-            boolean isTargetAdmin = com.premiernuts.identity.core.enums.ERole.ROLE_ADMIN.name().equalsIgnoreCase(targetRole.getCode())
-                    || com.premiernuts.identity.core.enums.ERole.SUPER_ADMIN.name().equalsIgnoreCase(targetRole.getCode());
-            if (isTargetAdmin && !isAdmin) {
-                throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
-            }
-
-            // Quy tắc cấp bậc: Người có cấp bậc actorLevel chỉ được thao tác với cấp bậc strictly lớn hơn (quyền hạn thấp hơn)
-            if (actorLevel != null && targetRole.getLevel() != null) {
-                if (targetRole.getLevel() <= actorLevel) {
-                    throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
-                }
-            }
+        if (targetRole != null && !Role.canManage(actorLevel, targetRole.getLevel())) {
+            throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
         }
     }
 
     public void validateUserModification(
-            com.premiernuts.identity.core.security.UserPrincipal actor,
+            UserPrincipal actor,
             Integer actorLevel,
-            com.premiernuts.identity.jpa.domain.user.User targetUser,
-            com.premiernuts.identity.jpa.domain.role.Role targetUserRole
+            User targetUser,
+            Role targetUserRole
     ) {
         if (actor == null) {
             throw new PnException(ErrorCodes.UNAUTHORIZED.TOKEN_INVALID);
         }
 
-        boolean isSuperAdmin = actor.hasRole(com.premiernuts.identity.core.enums.ERole.Names.SUPER_ADMIN);
-        if (isSuperAdmin) {
-            return;
+        if (!actor.hasPermission(EPermission.Names.USER_MANAGE)) {
+            throw new PnException(ErrorCodes.FORBIDDEN.ACCESS_DENIED);
         }
 
-        boolean isAdmin = actor.hasRole(com.premiernuts.identity.core.enums.ERole.Names.ROLE_ADMIN);
-
-        if (targetUserRole != null) {
-            boolean isTargetAdmin = com.premiernuts.identity.core.enums.ERole.ROLE_ADMIN.name().equalsIgnoreCase(targetUserRole.getCode())
-                    || com.premiernuts.identity.core.enums.ERole.SUPER_ADMIN.name().equalsIgnoreCase(targetUserRole.getCode());
-            if (isTargetAdmin && !isAdmin) {
-                throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
-            }
-
-            if (actorLevel != null && targetUserRole.getLevel() != null) {
-                if (targetUserRole.getLevel() <= actorLevel) {
-                    throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
-                }
-            }
+        if (targetUserRole != null && !Role.canManage(actorLevel, targetUserRole.getLevel())) {
+            throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
         }
     }
 
     public void validateAdminPermissionAssignment(
-            com.premiernuts.identity.core.security.UserPrincipal actor,
-            List<com.premiernuts.identity.jpa.domain.role.Permission> perms
+            UserPrincipal actor,
+            List<Permission> perms
     ) {
         if (perms == null || perms.isEmpty()) {
             return;
         }
-        if (actor != null && (actor.hasRole(com.premiernuts.identity.core.enums.ERole.ROLE_ADMIN.name())
-                || actor.hasRole(com.premiernuts.identity.core.enums.ERole.SUPER_ADMIN.name()))) {
-            return;
-        }
-
-        for (com.premiernuts.identity.jpa.domain.role.Permission p : perms) {
-            if (com.premiernuts.identity.core.enums.EPermission.isSystemPermission(p.getCode())) {
-                throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
-            }
+        if (actor == null || !actor.hasPermission(EPermission.Names.ROLE_ASSIGN)) {
+            throw new PnException(ErrorCodes.FORBIDDEN.ACCESS_DENIED);
         }
     }
 }

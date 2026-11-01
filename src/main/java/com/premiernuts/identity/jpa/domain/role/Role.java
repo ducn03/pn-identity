@@ -27,4 +27,22 @@ public class Role extends BaseEntity {
 
     @Column(name = "level", nullable = false)
     private Integer level = 99;
+
+    /**
+     * Quy tắc cấp bậc:
+     * - SuperAdmin (level 1) và Admin (level 2) toàn quyền quản lý.
+     * - Các cấp khác: chỉ được quản lý cấp bậc thấp hơn mình (level số lớn hơn).
+     */
+    public static boolean canManage(Integer actorLevel, Integer targetLevel) {
+        if (actorLevel == null) {
+            return false;
+        }
+        if (actorLevel <= 2) {
+            return true;
+        }
+        if (targetLevel == null) {
+            return true;
+        }
+        return targetLevel > actorLevel;
+    }
 }
