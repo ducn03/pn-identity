@@ -47,18 +47,7 @@ public class RoleServiceImpl implements RoleService {
     @Override
     @Transactional(readOnly = true)
     public List<RoleDTO> getRoles() {
-        UserPrincipal principal = UserContext.get();
-        Integer actorLevel = userRepository.resolveActorLevel(principal);
-
-        Integer minLevel = roleRepository.findMinRoleLevel().orElse(1);
-        List<Role> list;
-        if (actorLevel != null && actorLevel.equals(minLevel)) {
-            list = roleRepository.findAll();
-        } else if (actorLevel != null) {
-            list = roleRepository.findAllByLevelGreaterThan(actorLevel);
-        } else {
-            list = Collections.emptyList();
-        }
+        List<Role> list = roleRepository.findAll();
 
         if (list.isEmpty()) {
             return Collections.emptyList();
