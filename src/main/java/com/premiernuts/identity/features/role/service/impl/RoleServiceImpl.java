@@ -12,7 +12,6 @@ import com.premiernuts.identity.features.role.validator.RoleValidator;
 import com.premiernuts.identity.jpa.domain.role.Permission;
 import com.premiernuts.identity.jpa.domain.role.Role;
 import com.premiernuts.identity.jpa.domain.role.RolePermission;
-import com.premiernuts.identity.jpa.domain.user.User;
 import com.premiernuts.identity.jpa.repository.role.PermissionRepository;
 import com.premiernuts.identity.jpa.repository.role.RolePermissionRepository;
 import com.premiernuts.identity.jpa.repository.role.RoleRepository;
@@ -47,9 +46,15 @@ public class RoleServiceImpl implements RoleService {
     @Override
     @Transactional(readOnly = true)
     public List<RoleDTO> getRoles() {
-        List<Role> list = roleRepository.findAll();
+        UserPrincipal principal = UserContext.get();
+        Integer actorLevel = userRepository.resolveActorLevel(principal);
 
-        if (list.isEmpty()) {
+        List<Role> list = null;
+        if (actorLevel != null) {
+            list = roleRepository.findAllByLevelGreaterThanEqual(actorLevel);
+        }
+
+        if (list == null || list.isEmpty()) {
             return Collections.emptyList();
         }
 
