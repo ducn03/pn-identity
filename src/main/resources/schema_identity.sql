@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS M_ROLE (
     code VARCHAR(50) NOT NULL UNIQUE,            -- ROLE_ADMIN, ROLE_DIRECTOR, ROLE_BRANCH_MANAGER, ROLE_KHO...
     name VARCHAR(100) NOT NULL,
     description VARCHAR(255),
+    level INT NOT NULL DEFAULT 99,               -- Cấp bậc phân quyền (1: SuperAdmin, 2: Admin, 3: Director, 4: BranchManager, 5: Operational)
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, INACTIVE
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -191,15 +192,15 @@ AND NOT EXISTS (
 );
 
 -- 3. Seed M_ROLE (Template vai trò)
-INSERT INTO M_ROLE (code, name, description, status)
+INSERT INTO M_ROLE (code, name, description, level, status)
 VALUES 
-    ('ROLE_ADMIN', 'Quản Trị Viên Hệ Thống', 'Toàn quyền cấu hình, nhân sự và phân quyền Premier Nuts ERP', 'ACTIVE'),
-    ('ROLE_DIRECTOR', 'Ban Giám Đốc', 'Phê duyệt hạn mức, dự toán, xem toàn bộ báo cáo và điều hành', 'ACTIVE'),
-    ('ROLE_BRANCH_MANAGER', 'Quản Lý Chi Nhánh', 'Quản lý vận hành chi nhánh, kho chi nhánh và điều phối nhân sự', 'ACTIVE'),
-    ('ROLE_KHO', 'Thủ Kho', 'Quản lý xuất, nhập, tồn kho hạt và vật tư sản xuất', 'ACTIVE'),
-    ('ROLE_KE_TOAN', 'Kế Toán Doanh Nghiệp', 'Xem sổ sách, duyệt thanh toán, công nợ và đối soát hóa đơn', 'ACTIVE'),
-    ('ROLE_SAN_XUAT', 'Tổ Trưởng Sản Xuất', 'Tạo lệnh chế biến, quản lý máy rang sấy, đóng gói', 'ACTIVE'),
-    ('ROLE_QC', 'Kỹ Thuật Viên Kiểm Định', 'Kiểm định độ ẩm, tỷ lệ tấm, phân hạng A/B/C các lô hạt', 'ACTIVE')
+    ('ROLE_ADMIN', 'Quản Trị Viên Hệ Thống', 'Toàn quyền cấu hình, nhân sự và phân quyền Premier Nuts ERP', 2, 'ACTIVE'),
+    ('ROLE_DIRECTOR', 'Ban Giám Đốc', 'Phê duyệt hạn mức, dự toán, xem toàn bộ báo cáo và điều hành', 3, 'ACTIVE'),
+    ('ROLE_BRANCH_MANAGER', 'Quản Lý Chi Nhánh', 'Quản lý vận hành chi nhánh, kho chi nhánh và điều phối nhân sự', 4, 'ACTIVE'),
+    ('ROLE_KHO', 'Thủ Kho', 'Quản lý xuất, nhập, tồn kho hạt và vật tư sản xuất', 5, 'ACTIVE'),
+    ('ROLE_KE_TOAN', 'Kế Toán Doanh Nghiệp', 'Xem sổ sách, duyệt thanh toán, công nợ và đối soát hóa đơn', 5, 'ACTIVE'),
+    ('ROLE_SAN_XUAT', 'Tổ Trưởng Sản Xuất', 'Tạo lệnh chế biến, quản lý máy rang sấy, đóng gói', 5, 'ACTIVE'),
+    ('ROLE_QC', 'Kỹ Thuật Viên Kiểm Định', 'Kiểm định độ ẩm, tỷ lệ tấm, phân hạng A/B/C các lô hạt', 5, 'ACTIVE')
 ON CONFLICT (code) DO NOTHING;
 
 -- 4. Seed M_PERMISSION (Quyền hạn chi tiết theo Module)

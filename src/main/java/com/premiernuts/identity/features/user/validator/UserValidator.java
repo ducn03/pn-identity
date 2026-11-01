@@ -129,4 +129,87 @@ public class UserValidator {
             throw new PnException(ErrorCodes.VALIDATION.STATUS_INVALID);
         }
     }
+
+    public void validateRoleAssignment(
+            com.premiernuts.identity.core.security.UserPrincipal actor,
+            Integer actorLevel,
+            com.premiernuts.identity.jpa.domain.role.Role targetRole
+    ) {
+        if (actor == null) {
+            throw new PnException(ErrorCodes.UNAUTHORIZED.TOKEN_INVALID);
+        }
+
+        boolean isSuperAdmin = actor.hasRole(com.premiernuts.identity.core.enums.ERole.Names.SUPER_ADMIN);
+        if (isSuperAdmin) {
+            return;
+        }
+
+        boolean isAdmin = actor.hasRole(com.premiernuts.identity.core.enums.ERole.Names.ROLE_ADMIN);
+
+        if (targetRole != null) {
+            boolean isTargetAdmin = com.premiernuts.identity.core.enums.ERole.ROLE_ADMIN.name().equalsIgnoreCase(targetRole.getCode())
+                    || com.premiernuts.identity.core.enums.ERole.SUPER_ADMIN.name().equalsIgnoreCase(targetRole.getCode());
+            if (isTargetAdmin && !isAdmin) {
+                throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
+            }
+
+            // Quy tắc cấp bậc: Người có cấp bậc actorLevel chỉ được thao tác với cấp bậc strictly lớn hơn (quyền hạn thấp hơn)
+            if (actorLevel != null && targetRole.getLevel() != null) {
+                if (targetRole.getLevel() <= actorLevel) {
+                    throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
+                }
+            }
+        }
+    }
+
+    public void validateUserModification(
+            com.premiernuts.identity.core.security.UserPrincipal actor,
+            Integer actorLevel,
+            com.premiernuts.identity.jpa.domain.user.User targetUser,
+            com.premiernuts.identity.jpa.domain.role.Role targetUserRole
+    ) {
+        if (actor == null) {
+            throw new PnException(ErrorCodes.UNAUTHORIZED.TOKEN_INVALID);
+        }
+
+        boolean isSuperAdmin = actor.hasRole(com.premiernuts.identity.core.enums.ERole.Names.SUPER_ADMIN);
+        if (isSuperAdmin) {
+            return;
+        }
+
+        boolean isAdmin = actor.hasRole(com.premiernuts.identity.core.enums.ERole.Names.ROLE_ADMIN);
+
+        if (targetUserRole != null) {
+            boolean isTargetAdmin = com.premiernuts.identity.core.enums.ERole.ROLE_ADMIN.name().equalsIgnoreCase(targetUserRole.getCode())
+                    || com.premiernuts.identity.core.enums.ERole.SUPER_ADMIN.name().equalsIgnoreCase(targetUserRole.getCode());
+            if (isTargetAdmin && !isAdmin) {
+                throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
+            }
+
+            if (actorLevel != null && targetUserRole.getLevel() != null) {
+                if (targetUserRole.getLevel() <= actorLevel) {
+                    throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
+                }
+            }
+        }
+    }
+
+    public void validateAdminPermissionAssignment(
+            com.premiernuts.identity.core.security.UserPrincipal actor,
+            List<com.premiernuts.identity.jpa.domain.role.Permission> perms
+    ) {
+        if (perms == null || perms.isEmpty()) {
+            return;
+        }
+        if (actor != null && (actor.hasRole(com.premiernuts.identity.core.enums.ERole.ROLE_ADMIN.name())
+                || actor.hasRole(com.premiernuts.identity.core.enums.ERole.SUPER_ADMIN.name()))) {
+            return;
+        }
+
+        for (com.premiernuts.identity.jpa.domain.role.Permission p : perms) {
+            if (com.premiernuts.identity.core.enums.EPermission.isSystemPermission(p.getCode())) {
+                throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
+            }
+        }
+    }
 }

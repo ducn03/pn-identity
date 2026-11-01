@@ -6,25 +6,21 @@ import com.premiernuts.identity.core.dto.ResponseData;
 import com.premiernuts.identity.core.security.UserContext;
 import com.premiernuts.identity.core.security.UserPrincipal;
 import com.premiernuts.identity.core.utils.ResponseUtils;
+import com.premiernuts.identity.features.company.constants.CompanyEndpoints;
 import com.premiernuts.identity.features.company.dto.CompanyDTO;
 import com.premiernuts.identity.features.company.dto.DepartmentDTO;
-import com.premiernuts.identity.features.company.dto.RoleDTO;
+import com.premiernuts.identity.features.company.dto.UpdateCompanyDTO;
 import com.premiernuts.identity.features.company.service.CompanyService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.premiernuts.identity.features.company.constants.CompanyEndpoints;
-import com.premiernuts.identity.features.company.dto.PermissionDTO;
-import com.premiernuts.identity.features.company.dto.UpdateCompanyDTO;
-import com.premiernuts.identity.features.company.dto.UpdateRolePermissionsDTO;
-import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import java.util.List;
 
 @Slf4j
@@ -73,28 +69,4 @@ public class CompanyController {
         List<DepartmentDTO> list = companyService.getDepartments(companyId);
         return ResponseUtils.toSuccess(list);
     }
-
-    @GetMapping(CompanyEndpoints.ROLES)
-    @LogActivity(requireAuth = true)
-    public ResponseEntity<ResponseData<List<RoleDTO>>> getRoles() {
-        List<RoleDTO> list = companyService.getRoles();
-        return ResponseUtils.toSuccess(list);
-    }
-
-    @PutMapping(CompanyEndpoints.ROLES_PERMISSIONS)
-    @LogActivity(requireAuth = true)
-    public ResponseEntity<ResponseData<RoleDTO>> updateRolePermissions(
-            @PathVariable Long roleId,
-            @RequestBody UpdateRolePermissionsDTO request) {
-        RoleDTO updated = companyService.updateRolePermissions(roleId, request);
-        return ResponseUtils.toSuccess(updated);
-    }
-
-    @GetMapping(CompanyEndpoints.PERMISSIONS)
-    @LogActivity(requireAuth = true)
-    public ResponseEntity<ResponseData<List<PermissionDTO>>> getPermissions() {
-        List<PermissionDTO> list = companyService.getPermissions();
-        return ResponseUtils.toSuccess(list);
-    }
 }
-

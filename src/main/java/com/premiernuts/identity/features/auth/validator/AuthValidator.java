@@ -2,7 +2,6 @@ package com.premiernuts.identity.features.auth.validator;
 
 import com.premiernuts.identity.core.exception.ErrorCodes;
 import com.premiernuts.identity.core.exception.PnException;
-import com.premiernuts.identity.core.utils.MessageHelper;
 import com.premiernuts.identity.core.utils.StringHelper;
 import com.premiernuts.identity.features.auth.dto.LoginRequestDTO;
 import com.premiernuts.identity.features.auth.dto.RefreshTokenRequestDTO;
@@ -16,17 +15,15 @@ public class AuthValidator {
 
     public void validateLogin(LoginRequestDTO request) {
         if (request == null) {
-            throw new PnException(ErrorCodes.VALIDATION.INVALID_INPUT);
+            throw new PnException(ErrorCodes.COMMON.BAD_REQUEST);
         }
 
         List<String> errors = new ArrayList<>();
-
         if (StringHelper.isBlank(request.getUsername())) {
-            errors.add(MessageHelper.getMessage(ErrorCodes.VALIDATION.USERNAME_REQUIRED));
+            errors.add("Tên đăng nhập không được để trống");
         }
-
         if (StringHelper.isBlank(request.getPassword())) {
-            errors.add(MessageHelper.getMessage(ErrorCodes.VALIDATION.PASSWORD_REQUIRED));
+            errors.add("Mật khẩu không được để trống");
         }
 
         if (!errors.isEmpty()) {
@@ -35,11 +32,7 @@ public class AuthValidator {
     }
 
     public void validateRefreshToken(RefreshTokenRequestDTO request) {
-        if (request == null) {
-            throw new PnException(ErrorCodes.VALIDATION.INVALID_INPUT);
-        }
-
-        if (StringHelper.isBlank(request.getRefreshToken())) {
+        if (request == null || StringHelper.isBlank(request.getRefreshToken())) {
             throw new PnException(ErrorCodes.VALIDATION.REFRESH_TOKEN_REQUIRED);
         }
     }

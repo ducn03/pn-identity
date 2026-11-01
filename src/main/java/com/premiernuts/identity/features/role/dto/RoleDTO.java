@@ -1,7 +1,9 @@
-package com.premiernuts.identity.features.company.dto;
+package com.premiernuts.identity.features.role.dto;
 
 import lombok.Getter;
 import lombok.Setter;
+
+import java.util.List;
 
 @Getter
 @Setter
@@ -11,7 +13,8 @@ public class RoleDTO {
     private String code;
     private String name;
     private String description;
+    private Integer level;
     private String status;
-    private java.util.List<Long> permissionIds;
-    private java.util.List<String> permissionCodes;
+    private List<Long> permissionIds;
+    private List<String> permissionCodes;
 }

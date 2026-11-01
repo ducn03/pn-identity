@@ -4,7 +4,7 @@ import com.premiernuts.identity.core.aop.LogActivity;
 import com.premiernuts.identity.core.constants.CommonConstants;
 import com.premiernuts.identity.core.dto.PagingDTO;
 import com.premiernuts.identity.core.dto.ResponseData;
-import com.premiernuts.identity.core.enums.ERole;
+import com.premiernuts.identity.core.enums.EPermission;
 import com.premiernuts.identity.core.security.UserContext;
 import com.premiernuts.identity.core.security.UserPrincipal;
 import com.premiernuts.identity.core.utils.MessageHelper;
@@ -47,14 +47,14 @@ public class UserController {
     private final UserValidator userValidator;
 
     @GetMapping(UserEndpoints.GENERATE_USERNAME)
-    @LogActivity(requireAuth = true)
+    @LogActivity(requireAuth = true, permissions = {EPermission.Names.USER_MANAGE})
     public ResponseEntity<ResponseData<String>> generateUsername(@RequestParam String fullName) {
         String generated = userService.generateUsername(fullName);
         return ResponseUtils.toSuccess(generated);
     }
 
     @GetMapping
-    @LogActivity(requireAuth = true)
+    @LogActivity(requireAuth = true, permissions = {EPermission.Names.USER_VIEW})
     public ResponseEntity<ResponseData<List<UserDTO>>> getUsers(@ModelAttribute UserSearchDTO searchDTO) {
         UserPrincipal principal = UserContext.get();
         if (principal != null && searchDTO.getCompanyId() == null) {
@@ -76,14 +76,14 @@ public class UserController {
     }
 
     @GetMapping(UserEndpoints.ID)
-    @LogActivity(requireAuth = true)
+    @LogActivity(requireAuth = true, permissions = {EPermission.Names.USER_VIEW})
     public ResponseEntity<ResponseData<UserDTO>> getUserById(@PathVariable Long id) {
         UserDTO user = userService.getUserById(id);
         return ResponseUtils.toSuccess(user);
     }
 
     @PostMapping
-    @LogActivity(requireAuth = true, roles = {ERole.Names.SUPER_ADMIN, ERole.Names.ROLE_ADMIN})
+    @LogActivity(requireAuth = true, permissions = {EPermission.Names.USER_MANAGE})
     public ResponseEntity<ResponseData<UserDTO>> createUser(@RequestBody CreateUserDTO request) {
         userValidator.validateCreate(request);
 
@@ -98,7 +98,7 @@ public class UserController {
     }
 
     @PutMapping(UserEndpoints.ID)
-    @LogActivity(requireAuth = true, roles = {ERole.Names.SUPER_ADMIN, ERole.Names.ROLE_ADMIN})
+    @LogActivity(requireAuth = true, permissions = {EPermission.Names.USER_MANAGE})
     public ResponseEntity<ResponseData<UserDTO>> updateUser(
             @PathVariable Long id,
             @RequestBody UpdateUserDTO request
@@ -109,7 +109,7 @@ public class UserController {
     }
 
     @PatchMapping(UserEndpoints.STATUS)
-    @LogActivity(requireAuth = true, roles = {ERole.Names.SUPER_ADMIN, ERole.Names.ROLE_ADMIN})
+    @LogActivity(requireAuth = true, permissions = {EPermission.Names.USER_MANAGE})
     public ResponseEntity<ResponseData<String>> updateStatus(
             @PathVariable Long id,
             @RequestBody UpdateStatusDTO request

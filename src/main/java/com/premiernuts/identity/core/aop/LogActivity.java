@@ -15,7 +15,7 @@ public @interface LogActivity {
     boolean requireAuth() default true;
 
     /**
-     * Danh sách vai trò được phép truy cập (nếu để trống = bất kỳ role nào đã đăng nhập)
+     * Danh sách quyền hạn được phép truy cập (nếu để trống = không yêu cầu quyền cụ thể)
      */
-    String[] roles() default {};
+    String[] permissions() default {};
 }

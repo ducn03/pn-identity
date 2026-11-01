@@ -3,7 +3,7 @@ package com.premiernuts.identity.features.log.controller;
 import com.premiernuts.identity.core.aop.LogActivity;
 import com.premiernuts.identity.core.dto.PagingDTO;
 import com.premiernuts.identity.core.dto.ResponseData;
-import com.premiernuts.identity.core.enums.ERole;
+import com.premiernuts.identity.core.enums.EPermission;
 import com.premiernuts.identity.core.utils.ResponseUtils;
 import com.premiernuts.identity.features.log.constants.LogEndpoints;
 import com.premiernuts.identity.features.log.dto.LogSearchDTO;
@@ -31,7 +31,7 @@ public class LogController {
     private final LogService logService;
 
     @GetMapping(LogEndpoints.LOGIN_LOGS)
-    @LogActivity(requireAuth = true, roles = {ERole.Names.SUPER_ADMIN, ERole.Names.ROLE_ADMIN})
+    @LogActivity(requireAuth = true, permissions = {EPermission.Names.LOG_VIEW})
     public ResponseEntity<ResponseData<List<LoginLogDTO>>> getLoginLogs(@ModelAttribute LogSearchDTO searchDTO) {
         PageRequest pageRequest = PageRequest.of(
                 searchDTO.getNormalizedPage(),

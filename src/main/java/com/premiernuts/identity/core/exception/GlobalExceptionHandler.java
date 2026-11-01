@@ -62,13 +62,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ResponseData<Object>> handleGeneralException(Exception ex) {
         log.error("Unhandled Exception: ", ex);
-        String msg = MessageHelper.getMessage(ErrorCodes.COMMON.INTERNAL_SERVER_ERROR);
-        if (ex.getMessage() != null && !ex.getMessage().isBlank()) {
-            msg = ex.getMessage();
-        }
         return ResponseUtils.fail(
                 ErrorCodes.COMMON.INTERNAL_SERVER_ERROR,
-                msg
+                MessageHelper.getMessage(ErrorCodes.COMMON.INTERNAL_SERVER_ERROR)
         );
     }
 }

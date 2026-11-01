@@ -1,13 +1,13 @@
 package com.premiernuts.identity.core.aop;
 
 import com.premiernuts.identity.core.constants.SecurityConstants;
+import com.premiernuts.identity.core.enums.ERole;
 import com.premiernuts.identity.core.exception.ErrorCodes;
 import com.premiernuts.identity.core.exception.PnException;
 import com.premiernuts.identity.core.security.JwtHelper;
 import com.premiernuts.identity.core.security.UserContext;
 import com.premiernuts.identity.core.security.UserPrincipal;
 import com.premiernuts.identity.core.utils.DateTimeHelper;
-import com.premiernuts.identity.core.utils.JsonHelper;
 import com.premiernuts.identity.core.utils.StringHelper;
 import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,7 +20,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import java.util.Arrays;
 import java.util.List;
 
 @Slf4j
@@ -54,14 +53,20 @@ public class LogActivityAspect {
 
         try {
             if (logActivity.requireAuth() && request != null) {
-                authorizeRequest(request, logActivity.roles());
+                authorizeRequest(request, logActivity.permissions());
             }
 
             Object result = point.proceed();
             long duration = DateTimeHelper.currentTimeMillis() - startTime;
 
-            log.info("[LogActivity] [{} {}] duration={}ms | response={}",
-                    method, path, duration, JsonHelper.toJson(result));
+            UserPrincipal current = UserContext.get();
+            String userTag = "ANONYMOUS";
+            if (current != null && current.getUsername() != null) {
+                userTag = current.getUsername();
+            }
+
+            // Ghi log hiệu năng nhẹ, KHÔNG serialize toàn bộ body response để tránh memory heap spike
+            log.info("[LogActivity] [{} {}] duration={}ms | user={}", method, path, duration, userTag);
 
             return result;
         } catch (PnException e) {
@@ -75,7 +80,7 @@ public class LogActivityAspect {
         }
     }
 
-    private void authorizeRequest(HttpServletRequest request, String[] requiredRoles) {
+    private void authorizeRequest(HttpServletRequest request, String[] requiredPermissions) {
         String authHeader = request.getHeader(SecurityConstants.HEADER_AUTHORIZATION);
         if (authHeader == null || !authHeader.startsWith(SecurityConstants.BEARER_PREFIX)) {
             throw new PnException(ErrorCodes.UNAUTHORIZED.UNAUTHORIZED);
@@ -83,37 +88,45 @@ public class LogActivityAspect {
 
         String token = StringHelper.trim(authHeader.substring(SecurityConstants.BEARER_PREFIX.length()));
         try {
-            Long userId = jwtHelper.extractUserId(token);
-            String username = jwtHelper.extractUsername(token);
-            Long companyId = jwtHelper.extractCompanyId(token);
-            List<String> roles = jwtHelper.extractRoles(token);
-            List<String> permissions = jwtHelper.extractPermissions(token);
+            // Tối ưu đơn lượt (Single-pass parsing): Trích xuất UserPrincipal 1 lần duy nhất thay vì parse claims 5 lần
+            UserPrincipal principal = jwtHelper.extractPrincipal(token);
 
-            if (userId == null || username == null) {
+            if (principal == null || principal.getUserId() == null || principal.getUsername() == null) {
                 throw new PnException(ErrorCodes.UNAUTHORIZED.TOKEN_INVALID);
             }
 
-            // Kiểm tra vai trò nếu được chỉ định
-            if (requiredRoles != null && requiredRoles.length > 0) {
-                boolean hasRole = false;
-                if (roles != null) {
-                    for (String requiredRole : requiredRoles) {
-                        if (requiredRole != null && roles.contains(requiredRole)) {
-                            hasRole = true;
-                            break;
+            boolean isAdmin = false;
+            List<String> roles = principal.getRoles();
+            if (roles != null) {
+                if (roles.contains(ERole.ROLE_ADMIN.name()) || roles.contains(ERole.SUPER_ADMIN.name())) {
+                    isAdmin = true;
+                }
+            }
+
+            // Kiểm tra phân quyền hoàn toàn bằng Permission (Admin bypass toàn bộ)
+            if (requiredPermissions != null && requiredPermissions.length > 0) {
+                boolean hasPerm = false;
+                if (isAdmin) {
+                    hasPerm = true;
+                } else {
+                    List<String> permissions = principal.getPermissions();
+                    if (permissions != null) {
+                        for (String reqPerm : requiredPermissions) {
+                            if (reqPerm != null && (permissions.contains("*") || permissions.contains(reqPerm))) {
+                                hasPerm = true;
+                                break;
+                            }
                         }
                     }
                 }
-                if (!hasRole) {
+                if (!hasPerm) {
                     throw new PnException(ErrorCodes.FORBIDDEN.ACCESS_DENIED);
                 }
             }
 
-            UserPrincipal principal = new UserPrincipal(userId, username, companyId, roles, permissions);
-
             UserContext.set(principal);
             request.setAttribute(SecurityConstants.REQ_ATTR_USER_PRINCIPAL, principal);
-            request.setAttribute(SecurityConstants.REQ_ATTR_USER_ID, userId);
+            request.setAttribute(SecurityConstants.REQ_ATTR_USER_ID, principal.getUserId());
         } catch (ExpiredJwtException e) {
             throw new PnException(ErrorCodes.UNAUTHORIZED.TOKEN_EXPIRED);
         } catch (PnException e) {

@@ -24,4 +24,7 @@ public class Role extends BaseEntity {
 
     @Column(name = "description", length = 255)
     private String description;
+
+    @Column(name = "level", nullable = false)
+    private Integer level = 99;
 }

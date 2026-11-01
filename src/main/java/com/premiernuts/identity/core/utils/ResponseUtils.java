@@ -32,7 +32,7 @@ public class ResponseUtils {
         ResponseData<Object> responseData = new ResponseData<>();
         responseData.setMeta(Meta.fail(errorCode, errorMessage, errors));
         responseData.setData(null);
-        return ResponseEntity.ok(responseData);
+        return ResponseEntity.badRequest().body(responseData);
     }
 
     public static ResponseEntity<ResponseData<Object>> unauthorized(String errorCode, String errorMessage) {

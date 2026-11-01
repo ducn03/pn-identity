@@ -1,4 +1,4 @@
-package com.premiernuts.identity.features.company.dto;
+package com.premiernuts.identity.features.permission.dto;
 
 import lombok.Getter;
 import lombok.Setter;

@@ -86,6 +86,19 @@ public class JwtHelper {
         return false;
     }
 
+    @SuppressWarnings("unchecked")
+    public UserPrincipal extractPrincipal(String token) {
+        Claims claims = extractClaims(token);
+        Number userIdNum = claims.get("userId", Number.class);
+        Long userId = userIdNum != null ? userIdNum.longValue() : null;
+        String username = claims.getSubject();
+        Number companyIdNum = claims.get("companyId", Number.class);
+        Long companyId = companyIdNum != null ? companyIdNum.longValue() : null;
+        List<String> roles = claims.get("roles", List.class);
+        List<String> permissions = claims.get("permissions", List.class);
+        return new UserPrincipal(userId, username, companyId, roles, permissions);
+    }
+
     public Long extractUserId(String token) {
         Claims claims = extractClaims(token);
         Number userIdNum = claims.get("userId", Number.class);

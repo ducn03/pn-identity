@@ -8,6 +8,7 @@ import com.premiernuts.identity.features.user.dto.CreateUserDTO;
 import com.premiernuts.identity.features.user.dto.UpdateUserDTO;
 import com.premiernuts.identity.features.user.dto.UserDTO;
 import com.premiernuts.identity.jpa.domain.user.User;
+import com.premiernuts.identity.features.user.dto.UserDetailContext;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -15,21 +16,7 @@ import java.util.List;
 @Component
 public class UserMapper {
 
-    public UserDTO toDTO(User user, String deptName, List<String> roleCodes, List<Long> roleIds) {
-        return toDTO(user, deptName, user != null ? user.getRoleId() : null, null, null, roleCodes, roleIds, null, null);
-    }
-
-    public UserDTO toDTO(
-            User user,
-            String deptName,
-            Long roleId,
-            String roleCode,
-            String roleName,
-            List<String> roleCodes,
-            List<Long> roleIds,
-            List<Long> permissionIds,
-            List<String> permissionCodes
-    ) {
+    public UserDTO toDTO(User user, UserDetailContext context) {
         if (user == null) {
             return null;
         }
@@ -38,7 +25,6 @@ public class UserMapper {
         dto.setId(user.getId());
         dto.setCompanyId(user.getCompanyId());
         dto.setDepartmentId(user.getDepartmentId());
-        dto.setDepartmentName(deptName);
         dto.setUsername(user.getUsername());
         dto.setFullName(user.getFullName());
         dto.setEmail(user.getEmail());
@@ -48,13 +34,17 @@ public class UserMapper {
         dto.setLastLoginAt(user.getLastLoginAt());
         dto.setCreatedAt(user.getCreatedAt());
         dto.setUpdatedAt(user.getUpdatedAt());
-        dto.setRoleId(roleId);
-        dto.setRoleCode(roleCode);
-        dto.setRoleName(roleName);
-        dto.setRoles(roleCodes);
-        dto.setRoleIds(roleIds);
-        dto.setPermissionIds(permissionIds);
-        dto.setPermissions(permissionCodes);
+
+        if (context != null) {
+            dto.setDepartmentName(context.getDepartmentName());
+            dto.setRoleId(context.getPrimaryRoleId());
+            dto.setRoleCode(context.getPrimaryRoleCode());
+            dto.setRoleName(context.getPrimaryRoleName());
+            dto.setRoles(context.getRoleCodes());
+            dto.setRoleIds(context.getRoleIds());
+            dto.setPermissionIds(context.getPermissionIds());
+            dto.setPermissions(context.getPermissionCodes());
+        }
         return dto;
     }
 

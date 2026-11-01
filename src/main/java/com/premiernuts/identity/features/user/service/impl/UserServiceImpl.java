@@ -15,9 +15,11 @@ import com.premiernuts.identity.features.user.dto.CreateUserDTO;
 import com.premiernuts.identity.features.user.dto.UpdateStatusDTO;
 import com.premiernuts.identity.features.user.dto.UpdateUserDTO;
 import com.premiernuts.identity.features.user.dto.UserDTO;
+import com.premiernuts.identity.features.user.dto.UserDetailContext;
 import com.premiernuts.identity.features.user.dto.UserSearchDTO;
 import com.premiernuts.identity.features.user.mapper.UserMapper;
 import com.premiernuts.identity.features.user.service.UserService;
+import com.premiernuts.identity.features.user.validator.UserValidator;
 import com.premiernuts.identity.jpa.domain.company.Department;
 import com.premiernuts.identity.jpa.domain.role.Permission;
 import com.premiernuts.identity.jpa.domain.role.Role;
@@ -41,9 +43,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -59,6 +63,7 @@ public class UserServiceImpl implements UserService {
     private final PermissionRepository permissionRepository;
     private final TokenStorageService tokenStorageService;
     private final UserMapper userMapper;
+    private final UserValidator userValidator;
 
     @Override
     @Transactional(readOnly = true)
@@ -68,7 +73,7 @@ public class UserServiceImpl implements UserService {
             return page.map(u -> null);
         }
 
-        // Tối ưu batch fetch departments
+        // 1. Tối ưu batch fetch departments
         List<Long> deptIds = page.getContent().stream()
                 .map(User::getDepartmentId)
                 .filter(id -> id != null && id > 0)
@@ -83,7 +88,7 @@ public class UserServiceImpl implements UserService {
             }
         }
 
-        // Tối ưu batch fetch roles từ T_USER.role_id
+        // 2. Tối ưu batch fetch roles
         List<Long> roleIds = page.getContent().stream()
                 .map(User::getRoleId)
                 .filter(id -> id != null && id > 0)
@@ -98,7 +103,7 @@ public class UserServiceImpl implements UserService {
             }
         }
 
-        // Tối ưu batch fetch user permissions từ T_USER_PERMISSION
+        // 3. Tối ưu batch fetch user permissions từ T_USER_PERMISSION
         List<Long> userIds = page.getContent().stream().map(User::getId).toList();
         List<UserPermission> allUserPerms = userPermissionRepository.findAllByUserIdIn(userIds);
         List<Long> allPermIds = allUserPerms.stream().map(UserPermission::getPermissionId).distinct().toList();
@@ -142,8 +147,7 @@ public class UserServiceImpl implements UserService {
                 }
             }
 
-            return userMapper.toDTO(
-                    user,
+            UserDetailContext ctx = UserDetailContext.of(
                     deptName,
                     primaryRoleId,
                     primaryRoleCode,
@@ -153,6 +157,8 @@ public class UserServiceImpl implements UserService {
                     uPermIds,
                     uPermCodes
             );
+
+            return userMapper.toDTO(user, ctx);
         });
     }
 
@@ -190,9 +196,20 @@ public class UserServiceImpl implements UserService {
             }
         }
 
-        // Lấy trực tiếp permissions từ T_USER_PERMISSION
+        // Lấy permissions từ T_USER_PERMISSION hoặc kế thừa Role Template
         List<UserPermission> userPerms = userPermissionRepository.findAllByUserId(user.getId());
-        List<Long> permIds = userPerms.stream().map(UserPermission::getPermissionId).toList();
+        List<Long> permIds = new ArrayList<>();
+        if (!userPerms.isEmpty()) {
+            for (UserPermission up : userPerms) {
+                permIds.add(up.getPermissionId());
+            }
+        } else if (primaryRoleId != null) {
+            List<RolePermission> rolePerms = rolePermissionRepository.findAllByRoleId(primaryRoleId);
+            for (RolePermission rp : rolePerms) {
+                permIds.add(rp.getPermissionId());
+            }
+        }
+
         List<String> permCodes = new ArrayList<>();
         if (!permIds.isEmpty()) {
             List<Permission> perms = permissionRepository.findAllById(permIds);
@@ -201,8 +218,7 @@ public class UserServiceImpl implements UserService {
             }
         }
 
-        return userMapper.toDTO(
-                user,
+        UserDetailContext ctx = UserDetailContext.of(
                 deptName,
                 primaryRoleId,
                 primaryRoleCode,
@@ -212,6 +228,8 @@ public class UserServiceImpl implements UserService {
                 permIds,
                 permCodes
         );
+
+        return userMapper.toDTO(user, ctx);
     }
 
     @Override
@@ -239,9 +257,24 @@ public class UserServiceImpl implements UserService {
             selectedRoleId = request.getRoleIds().get(0);
         }
 
-        // Chỉ Admin mới có quyền gán quyền Admin hoặc gán các quyền đặc thù của Admin
-        validateAdminRoleAssignment(selectedRoleId);
-        validateAdminPermissionAssignment(request.getPermissionIds());
+        UserPrincipal principal = UserContext.get();
+        Integer actorLevel = resolveActorLevel(principal);
+
+        Role targetRole = null;
+        if (selectedRoleId != null) {
+            Optional<Role> rOpt = roleRepository.findById(selectedRoleId);
+            if (rOpt.isPresent()) {
+                targetRole = rOpt.get();
+            }
+        }
+
+        // Validate nghiệp vụ phân quyền cấp bậc & quyền hạn (Item 6, 7, 9)
+        userValidator.validateRoleAssignment(principal, actorLevel, targetRole);
+
+        if (request.getPermissionIds() != null && !request.getPermissionIds().isEmpty()) {
+            List<Permission> perms = permissionRepository.findAllById(request.getPermissionIds());
+            userValidator.validateAdminPermissionAssignment(principal, perms);
+        }
 
         User user = userMapper.toEntity(request, defaultCompanyId);
         user.setUsername(username);
@@ -250,7 +283,6 @@ public class UserServiceImpl implements UserService {
 
         // Lưu permissions trực tiếp vào T_USER_PERMISSION
         if (request.getPermissionIds() != null && !request.getPermissionIds().isEmpty()) {
-            // Quản trị viên tùy biến danh sách quyền cho nhân viên
             for (Long pId : request.getPermissionIds()) {
                 UserPermission up = new UserPermission();
                 up.setUserId(user.getId());
@@ -258,7 +290,6 @@ public class UserServiceImpl implements UserService {
                 userPermissionRepository.save(up);
             }
         } else if (selectedRoleId != null) {
-            // Tự động sao chép danh sách quyền mặc định từ Role Template
             List<RolePermission> templatePerms = rolePermissionRepository.findAllByRoleId(selectedRoleId);
             for (RolePermission rp : templatePerms) {
                 UserPermission up = new UserPermission();
@@ -280,25 +311,23 @@ public class UserServiceImpl implements UserService {
         }
         User user = userOpt.get();
 
-        // Không ai ngoài Admin được phép chỉnh sửa tài khoản Admin
+        UserPrincipal principal = UserContext.get();
+        Integer actorLevel = resolveActorLevel(principal);
+
+        // Kiểm tra target user hiện tại: cấp dưới không được phép sửa cấp trên/ngang hàng
+        Role curRole = null;
         if (user.getRoleId() != null) {
             Optional<Role> curRoleOpt = roleRepository.findById(user.getRoleId());
             if (curRoleOpt.isPresent()) {
-                String curCode = curRoleOpt.get().getCode();
-                if (ERole.ROLE_ADMIN.name().equalsIgnoreCase(curCode) || ERole.SUPER_ADMIN.name().equalsIgnoreCase(curCode)) {
-                    UserPrincipal principal = UserContext.get();
-                    if (principal == null || (!principal.hasRole(ERole.ROLE_ADMIN.name()) && !principal.hasRole(ERole.SUPER_ADMIN.name()))) {
-                        throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
-                    }
-                }
+                curRole = curRoleOpt.get();
             }
         }
+        userValidator.validateUserModification(principal, actorLevel, user, curRole);
 
         // Chỉ cho phép Admin sửa username
         if (StringHelper.isNotBlank(request.getUsername())) {
             String newUsername = StringHelper.toLowerCase(request.getUsername());
             if (!newUsername.equalsIgnoreCase(user.getUsername())) {
-                UserPrincipal principal = UserContext.get();
                 if (principal == null || (!principal.hasRole(ERole.ROLE_ADMIN.name()) && !principal.hasRole(ERole.SUPER_ADMIN.name()))) {
                     throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
                 }
@@ -323,8 +352,21 @@ public class UserServiceImpl implements UserService {
             targetRoleId = request.getRoleIds().get(0);
         }
 
-        validateAdminRoleAssignment(targetRoleId);
-        validateAdminPermissionAssignment(request.getPermissionIds());
+        Role newRole = null;
+        if (targetRoleId != null) {
+            Optional<Role> rOpt = roleRepository.findById(targetRoleId);
+            if (rOpt.isPresent()) {
+                newRole = rOpt.get();
+            }
+        }
+
+        // Validate nghiệp vụ gán vai trò mới theo cấp bậc
+        userValidator.validateRoleAssignment(principal, actorLevel, newRole);
+
+        if (request.getPermissionIds() != null && !request.getPermissionIds().isEmpty()) {
+            List<Permission> perms = permissionRepository.findAllById(request.getPermissionIds());
+            userValidator.validateAdminPermissionAssignment(principal, perms);
+        }
 
         userMapper.updateEntity(user, request);
         if (targetRoleId != null) {
@@ -335,56 +377,18 @@ public class UserServiceImpl implements UserService {
         // Cập nhật T_USER_PERMISSION nếu có truyền danh sách mới
         if (request.getPermissionIds() != null) {
             userPermissionRepository.deleteAllByUserId(user.getId());
-            for (Long pId : request.getPermissionIds()) {
+            userPermissionRepository.flush();
+            Set<Long> uniquePermIds = new LinkedHashSet<>(request.getPermissionIds());
+            for (Long pId : uniquePermIds) {
                 UserPermission up = new UserPermission();
                 up.setUserId(user.getId());
                 up.setPermissionId(pId);
                 userPermissionRepository.save(up);
             }
+            userPermissionRepository.flush();
         }
 
         return getUserById(user.getId());
-    }
-
-    private void validateAdminRoleAssignment(Long roleId) {
-        if (roleId == null) {
-            return;
-        }
-
-        Optional<Role> roleOpt = roleRepository.findById(roleId);
-        if (roleOpt.isEmpty()) {
-            return;
-        }
-
-        Role role = roleOpt.get();
-        boolean isAdminRole = ERole.ROLE_ADMIN.name().equalsIgnoreCase(role.getCode())
-                || ERole.SUPER_ADMIN.name().equalsIgnoreCase(role.getCode());
-
-        if (isAdminRole) {
-            UserPrincipal principal = UserContext.get();
-            if (principal == null || (!principal.hasRole(ERole.ROLE_ADMIN.name()) && !principal.hasRole(ERole.SUPER_ADMIN.name()))) {
-                throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
-            }
-        }
-    }
-
-    private void validateAdminPermissionAssignment(List<Long> permissionIds) {
-        if (permissionIds == null || permissionIds.isEmpty()) {
-            return;
-        }
-        UserPrincipal principal = UserContext.get();
-        if (principal != null && (principal.hasRole(ERole.ROLE_ADMIN.name()) || principal.hasRole(ERole.SUPER_ADMIN.name()))) {
-            return;
-        }
-
-        List<Permission> perms = permissionRepository.findAllById(permissionIds);
-        for (Permission p : perms) {
-            if ("LOG_VIEW".equalsIgnoreCase(p.getCode())
-                    || "HEALTH_VIEW".equalsIgnoreCase(p.getCode())
-                    || "DASHBOARD_VIEW".equalsIgnoreCase(p.getCode())) {
-                throw new PnException(ErrorCodes.FORBIDDEN.ROLE_NOT_ALLOWED);
-            }
-        }
     }
 
     @Override
@@ -396,10 +400,21 @@ public class UserServiceImpl implements UserService {
         }
         User user = userOpt.get();
 
+        UserPrincipal principal = UserContext.get();
+        Integer actorLevel = resolveActorLevel(principal);
+
+        Role curRole = null;
+        if (user.getRoleId() != null) {
+            Optional<Role> rOpt = roleRepository.findById(user.getRoleId());
+            if (rOpt.isPresent()) {
+                curRole = rOpt.get();
+            }
+        }
+        userValidator.validateUserModification(principal, actorLevel, user, curRole);
+
         user.setStatus(StringHelper.toUpperCase(request.getStatus()));
         userRepository.save(user);
 
-        // Nếu trạng thái khác ACTIVE -> thu hồi toàn bộ token qua TokenStorageService
         if (!EStatus.ACTIVE.name().equalsIgnoreCase(request.getStatus())) {
             tokenStorageService.revokeAllUserTokens(user.getId());
             log.info("Revoked active tokens for user id {} due to status change to {}", user.getId(), request.getStatus());
@@ -422,7 +437,6 @@ public class UserServiceImpl implements UserService {
         user.setPasswordHash(PasswordHelper.hash(request.getNewPassword()));
         userRepository.save(user);
 
-        // Đổi mật khẩu thành công thì hủy các token cũ để bắt buộc đăng nhập lại
         tokenStorageService.revokeAllUserTokens(user.getId());
         log.info("Password changed and active sessions revoked for user: {}", user.getUsername());
     }
@@ -436,6 +450,18 @@ public class UserServiceImpl implements UserService {
         }
         User user = userOpt.get();
 
+        UserPrincipal principal = UserContext.get();
+        Integer actorLevel = resolveActorLevel(principal);
+
+        Role curRole = null;
+        if (user.getRoleId() != null) {
+            Optional<Role> rOpt = roleRepository.findById(user.getRoleId());
+            if (rOpt.isPresent()) {
+                curRole = rOpt.get();
+            }
+        }
+        userValidator.validateUserModification(principal, actorLevel, user, curRole);
+
         user.setPasswordHash(PasswordHelper.hash(newPassword));
         userRepository.save(user);
 
@@ -447,6 +473,19 @@ public class UserServiceImpl implements UserService {
     public String generateUsername(String fullName) {
         return UsernameHelper.generateUniqueUsername(fullName, userRepository);
     }
+
+    private Integer resolveActorLevel(UserPrincipal principal) {
+        if (principal == null || principal.getUserId() == null) {
+            return 99;
+        }
+        Optional<User> actorOpt = userRepository.findById(principal.getUserId());
+        if (actorOpt.isEmpty() || actorOpt.get().getRoleId() == null) {
+            return 99;
+        }
+        Optional<Role> rOpt = roleRepository.findById(actorOpt.get().getRoleId());
+        if (rOpt.isPresent() && rOpt.get().getLevel() != null) {
+            return rOpt.get().getLevel();
+        }
+        return 99;
+    }
 }
-
-

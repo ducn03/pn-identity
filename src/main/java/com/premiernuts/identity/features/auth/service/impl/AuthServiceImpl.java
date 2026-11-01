@@ -15,15 +15,16 @@ import com.premiernuts.identity.features.auth.dto.LoginRequestDTO;
 import com.premiernuts.identity.features.auth.dto.LoginResponseDTO;
 import com.premiernuts.identity.features.auth.dto.RefreshTokenRequestDTO;
 import com.premiernuts.identity.features.auth.service.AuthService;
+import com.premiernuts.identity.features.auth.service.LoginLogService;
 import com.premiernuts.identity.features.auth.service.TokenStorageService;
-import com.premiernuts.identity.jpa.domain.auth.LoginLog;
 import com.premiernuts.identity.jpa.domain.auth.Token;
 import com.premiernuts.identity.jpa.domain.role.Permission;
 import com.premiernuts.identity.jpa.domain.role.Role;
+import com.premiernuts.identity.jpa.domain.role.RolePermission;
 import com.premiernuts.identity.jpa.domain.user.User;
 import com.premiernuts.identity.jpa.domain.user.UserPermission;
-import com.premiernuts.identity.jpa.repository.auth.LoginLogRepository;
 import com.premiernuts.identity.jpa.repository.role.PermissionRepository;
+import com.premiernuts.identity.jpa.repository.role.RolePermissionRepository;
 import com.premiernuts.identity.jpa.repository.role.RoleRepository;
 import com.premiernuts.identity.jpa.repository.user.UserPermissionRepository;
 import com.premiernuts.identity.jpa.repository.user.UserRepository;
@@ -34,8 +35,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -44,10 +47,11 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final RolePermissionRepository rolePermissionRepository;
     private final UserPermissionRepository userPermissionRepository;
     private final PermissionRepository permissionRepository;
     private final TokenStorageService tokenStorageService;
-    private final LoginLogRepository loginLogRepository;
+    private final LoginLogService loginLogService;
     private final JwtHelper jwtHelper;
 
     @Override
@@ -81,7 +85,7 @@ public class AuthServiceImpl implements AuthService {
         } else {
             roles = Collections.emptyList();
         }
-        List<String> permissions = getUserPermissions(user.getId(), roleCode);
+        List<String> permissions = getUserPermissions(user, roleCode);
 
         // Sinh cặp Token chứa role và permissions
         String accessToken = jwtHelper.generateAccessToken(user.getId(), user.getUsername(), user.getCompanyId(), roles, permissions);
@@ -140,7 +144,7 @@ public class AuthServiceImpl implements AuthService {
         } else {
             roles = Collections.emptyList();
         }
-        List<String> permissions = getUserPermissions(user.getId(), roleCode);
+        List<String> permissions = getUserPermissions(user, roleCode);
         String newAccessToken = jwtHelper.generateAccessToken(user.getId(), user.getUsername(), user.getCompanyId(), roles, permissions);
 
         UserPrincipal principal = new UserPrincipal(user.getId(), user.getUsername(), user.getCompanyId(), roles, permissions);
@@ -165,6 +169,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserPrincipal getMe(Long userId) {
         Optional<User> userOpt = userRepository.findById(userId);
         if (userOpt.isEmpty()) {
@@ -179,7 +184,7 @@ public class AuthServiceImpl implements AuthService {
         } else {
             roles = Collections.emptyList();
         }
-        List<String> permissions = getUserPermissions(user.getId(), roleCode);
+        List<String> permissions = getUserPermissions(user, roleCode);
 
         return new UserPrincipal(user.getId(), user.getUsername(), user.getCompanyId(), roles, permissions);
     }
@@ -195,32 +200,38 @@ public class AuthServiceImpl implements AuthService {
         return null;
     }
 
-    private List<String> getUserPermissions(Long userId, String roleCode) {
+    private List<String> getUserPermissions(User user, String roleCode) {
         // Quản trị viên có toàn bộ quyền hệ thống
         if (ERole.ROLE_ADMIN.name().equals(roleCode) || ERole.SUPER_ADMIN.name().equals(roleCode)) {
             List<Permission> allPerms = permissionRepository.findAll();
             return allPerms.stream().map(Permission::getCode).toList();
         }
 
-        // Lấy danh sách quyền hạn gán trực tiếp từ T_USER_PERMISSION
-        List<UserPermission> userPerms = userPermissionRepository.findAllByUserId(userId);
-        if (userPerms.isEmpty()) {
+        Set<Long> permIds = new LinkedHashSet<>();
+
+        // 1. Kế thừa quyền từ Role Template (M_ROLE -> T_ROLE_PERMISSION)
+        if (user.getRoleId() != null) {
+            List<RolePermission> rolePerms = rolePermissionRepository.findAllByRoleId(user.getRoleId());
+            for (RolePermission rp : rolePerms) {
+                permIds.add(rp.getPermissionId());
+            }
+        }
+
+        // 2. Kế thừa quyền gán trực tiếp cho người dùng (T_USER_PERMISSION)
+        List<UserPermission> userPerms = userPermissionRepository.findAllByUserId(user.getId());
+        for (UserPermission up : userPerms) {
+            permIds.add(up.getPermissionId());
+        }
+
+        if (permIds.isEmpty()) {
             return Collections.emptyList();
         }
 
-        List<Long> permIds = userPerms.stream().map(UserPermission::getPermissionId).toList();
         List<Permission> perms = permissionRepository.findAllById(permIds);
         return perms.stream().map(Permission::getCode).toList();
     }
 
     private void recordLoginLog(Long userId, String username, String ip, String ua, String status, String reason) {
-        LoginLog logEntity = new LoginLog();
-        logEntity.setUserId(userId);
-        logEntity.setUsername(username);
-        logEntity.setIpAddress(ip);
-        logEntity.setUserAgent(ua);
-        logEntity.setStatus(status);
-        logEntity.setFailureReason(reason);
-        loginLogRepository.save(logEntity);
+        loginLogService.recordLoginLog(userId, username, ip, ua, status, reason);
     }
 }
