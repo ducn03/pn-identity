@@ -90,10 +90,16 @@ public class JwtHelper {
     public UserPrincipal extractPrincipal(String token) {
         Claims claims = extractClaims(token);
         Number userIdNum = claims.get("userId", Number.class);
-        Long userId = userIdNum != null ? userIdNum.longValue() : null;
+        Long userId = null;
+        if (userIdNum != null) {
+            userId = userIdNum.longValue();
+        }
         String username = claims.getSubject();
         Number companyIdNum = claims.get("companyId", Number.class);
-        Long companyId = companyIdNum != null ? companyIdNum.longValue() : null;
+        Long companyId = null;
+        if (companyIdNum != null) {
+            companyId = companyIdNum.longValue();
+        }
         List<String> roles = claims.get("roles", List.class);
         List<String> permissions = claims.get("permissions", List.class);
         return new UserPrincipal(userId, username, companyId, roles, permissions);
@@ -102,7 +108,10 @@ public class JwtHelper {
     public Long extractUserId(String token) {
         Claims claims = extractClaims(token);
         Number userIdNum = claims.get("userId", Number.class);
-        return userIdNum != null ? userIdNum.longValue() : null;
+        if (userIdNum != null) {
+            return userIdNum.longValue();
+        }
+        return null;
     }
 
     public String extractUsername(String token) {
@@ -112,7 +121,10 @@ public class JwtHelper {
     public Long extractCompanyId(String token) {
         Claims claims = extractClaims(token);
         Number companyIdNum = claims.get("companyId", Number.class);
-        return companyIdNum != null ? companyIdNum.longValue() : null;
+        if (companyIdNum != null) {
+            return companyIdNum.longValue();
+        }
+        return null;
     }
 
     @SuppressWarnings("unchecked")

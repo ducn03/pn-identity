@@ -14,12 +14,18 @@ public class UserContext {
 
     public static Long getCurrentUserId() {
         UserPrincipal principal = CURRENT_USER.get();
-        return principal != null ? principal.getUserId() : null;
+        if (principal != null) {
+            return principal.getUserId();
+        }
+        return null;
     }
 
     public static String getCurrentUsername() {
         UserPrincipal principal = CURRENT_USER.get();
-        return principal != null ? principal.getUsername() : null;
+        if (principal != null) {
+            return principal.getUsername();
+        }
+        return null;
     }
 
     public static void clear() {
